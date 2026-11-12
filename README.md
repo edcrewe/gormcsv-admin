@@ -1,59 +1,70 @@
-# GormcsvAdmin
+# gormcsv-admin
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.6.
+A django-admin-style web UI for [gormcsv](https://github.com/edcrewe/gormcsv). It covers uploading
+a CSV, generating its model, migrating the schema and populating the table, then browsing the
+schema and records.
 
-## Development server
+It is an Angular SSR app. The bundled Express server (`src/server.ts`) exposes a local `/api` that
+runs the `gormcsv` CLI. See [PLAN.md](PLAN.md) for the phased roadmap and [AGENTS.md](AGENTS.md)
+for coding conventions.
 
-To start a local development server, run:
+## Prerequisites
 
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+- Node.js 22+ and npm
+- `gormcsv` on your `PATH`, or set `GORMCSV_BIN=/path/to/gormcsv`. Without it the UI loads but
+  shows "gormcsv CLI not available".
 
 ```bash
-ng generate component component-name
+npm install
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Run the frontend
+
+Development server with live reload, serving both the UI and `/api`:
 
 ```bash
-ng generate --help
+npm start            # ng serve
 ```
 
-## Building
+Open <http://localhost:4200/>. The header badge shows the result of `GET /api/health`.
 
-To build the project run:
+Production build and server:
 
 ```bash
-ng build
+npm run build                    # ng build -> dist/gormcsv-admin
+npm run serve:ssr:gormcsv-admin  # http://127.0.0.1:4000
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+| Variable      | Default     | Purpose                                              |
+| ------------- | ----------- | ---------------------------------------------------- |
+| `PORT`        | `4000`      | Production server port                               |
+| `HOST`        | `127.0.0.1` | Bind address. Kept local because the API runs a CLI. |
+| `GORMCSV_BIN` | `gormcsv`   | Path to the gormcsv binary                           |
 
-## Running unit tests
+SSR only answers requests for `localhost` and `127.0.0.1` (`security.allowedHosts` in
+`angular.json`). Add a host there if you serve it under another name.
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+## Run the tests
+
+| Command               | What it runs                                                           |
+| --------------------- | ---------------------------------------------------------------------- |
+| `npm test`            | Angular component specs (`src/**/*.spec.ts`) with Vitest and jsdom     |
+| `npm run test:server` | Type-check, then Node API tests (`src/api/**/*.test.ts`) via supertest |
+
+Run `npm test -- --watch=false` for a single pass instead of watch mode. API tests use a fake
+`gormcsv` runner, so they don't need the binary installed.
+
+Before committing:
 
 ```bash
-ng test
+npm test -- --watch=false && npm run test:server && npx prettier --check . && npm run build
 ```
 
-## Running end-to-end tests
+## Layout
 
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
+```text
+src/
+  server.ts        Express server: /api router, static files, Angular SSR handler
+  api/             API routers and the gormcsv runner, with *.test.ts beside them
+  app/             Angular app, with *.spec.ts beside components
 ```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
