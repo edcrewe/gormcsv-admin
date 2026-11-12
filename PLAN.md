@@ -8,6 +8,40 @@ The Angular SSR Express server (`src/server.ts`) is a local bridge to the `gormc
 also an Angular learning exercise, so features are added one step at a time. Each step is a
 `feat:` commit then a `test:` commit, and stops for review before the next.
 
+## Status (2026-11-12)
+
+Phases 0 and 1 are done: 20 Angular specs and 8 API tests pass, and the build passes.
+
+**Next: Phase 2, upload and inspect.** Intended shape:
+
+- API:
+  - `src/api/inspect.ts` router with `POST /api/inspect`. Use multer in-memory storage with a size
+    limit.
+  - Reduce the filename to `path.basename` and require a `.csv` extension.
+  - Write the file to a per-request `mkdtemp` dir and run
+    `inspectcsv -f <dir>/<name>.csv -o <dir>/models.go` through the injected runner. Return
+    `{ model, source }`, and always remove the temp dir.
+  - The model name comes from the filename: `order-item.csv` gives `OrderItem`.
+- UI:
+  - Build out the `features/import/import-page.ts` placeholder with an accessible Material file
+    input.
+  - Show the generated Go source in a copyable code panel.
+  - Add a `ModelPreview` component that takes `input()`.
+- Tests:
+  - `src/api/inspect.test.ts` with a fake runner (bad extension, path traversal name, size
+    limit, CLI failure, cleanup).
+  - An opt-in real-CLI integration test, e.g. `GORMCSV_IT=1`.
+  - Component specs using `HttpTestingController`, plus AXE.
+
+Notes for picking up:
+
+- Verify the exact `inspectcsv` output and model naming against the real CLI before writing the
+  parser.
+- VS Code: if test globals go missing, run "TypeScript: Restart TS Server". All three tsconfigs
+  are referenced from `tsconfig.json`.
+- Stop a background server by PID, not `pkill -f`, which can match the calling shell.
+- `run_oc.sh` is the user's file and is untracked. Leave it alone.
+
 ## Key constraint: models are compiled in
 
 `gormcsv importcsv` only imports models compiled into its binary (`importcsv.MakeModels()` in a
