@@ -64,11 +64,13 @@ Project-specific:
 - SSR `allowedHosts` for localhost. Lockfile tracked. Prettier config restored.
 - Split test harness for specs and server tests.
 
-### Phase 1: Admin shell
+### Phase 1: Admin shell (done)
 
 - Material sidenav and toolbar layout.
-- Lazy routes: `/import`, `/models`, `/tables`, `/history`.
+- Lazy routes: `/import`, `/models`, `/tables`, `/history`, plus a not-found page (server-rendered
+  with a 404).
 - `CliStatusService` (signals) replaces the health logic in `App`.
+- AXE checks in component specs.
 
 ### Phase 2: Upload and inspect
 

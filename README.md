@@ -67,4 +67,10 @@ src/
   server.ts        Express server: /api router, static files, Angular SSR handler
   api/             API routers and the gormcsv runner, with *.test.ts beside them
   app/             Angular app, with *.spec.ts beside components
+    core/          App-wide services and components (CLI status)
+    features/      One lazy-loaded page per route
+  testing/         Spec helpers, such as expectNoAxeViolations
 ```
+
+Component specs run AXE via `axe-core`. jsdom cannot compute styles, so colour contrast is not
+checked there. Check it in a real browser.
