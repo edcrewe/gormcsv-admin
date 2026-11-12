@@ -1,40 +1,46 @@
-import { RouterOutlet } from '@angular/router';
-import { Component, afterNextRender, inject, signal } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Component, signal } from '@angular/core';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatListModule } from '@angular/material/list';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { CliStatusBadge } from './core/cli-status-badge';
 
-export interface HealthStatus {
-  ok: boolean;
-  summary?: string;
-  error?: string;
+export interface NavItem {
+  path: string;
+  label: string;
+  icon: string;
 }
+
+export const NAV_ITEMS: readonly NavItem[] = [
+  { path: '/import', label: 'Import CSV', icon: 'upload_file' },
+  { path: '/models', label: 'Models', icon: 'schema' },
+  { path: '/tables', label: 'Tables', icon: 'table_view' },
+  { path: '/history', label: 'History', icon: 'history' },
+];
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    MatButtonModule,
+    MatIconModule,
+    MatListModule,
+    MatSidenavModule,
+    MatToolbarModule,
+    CliStatusBadge,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App {
-  private http = inject(HttpClient);
-  cliStatus = signal<HealthStatus | null>(null);
+  protected readonly navItems = NAV_ITEMS;
+  protected readonly navOpen = signal(true);
 
-  constructor() {
-    // Routes are prerendered at build time, where a relative /api URL has no server; only check in the browser.
-    afterNextRender(() => this.checkHealth());
+  toggleNav() {
+    this.navOpen.update((open) => !open);
   }
-
-  private checkHealth() {
-    this.http.get<HealthStatus>('/api/health').subscribe({
-      next: (status) => this.cliStatus.set(status),
-      error: (err: HttpErrorResponse) => this.cliStatus.set(toHealthStatus(err)),
-    });
-  }
-}
-
-function toHealthStatus(err: HttpErrorResponse): HealthStatus {
-  const body: unknown = err.error;
-  if (typeof body === 'object' && body !== null && 'ok' in body) {
-    return body as HealthStatus;
-  }
-  return { ok: false, error: 'Server unreachable' };
 }
