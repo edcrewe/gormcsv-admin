@@ -7,7 +7,20 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:server": "tsc -p tsconfig.server-spec.json && vitest run --config vitest.server.config.mts",
     "serve:ssr:gormcsv-admin": "node dist/gormcsv-admin/server/server.mjs"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "singleQuote": true,
+    "overrides": [
+      {
+        "files": "*.html",
+        "options": {
+          "parser": "angular"
+        }
+      }
+    ]
   },
   "private": true,
   "packageManager": "npm@12.2.2",
@@ -32,8 +45,10 @@
     "@types/express": "^5.0.1",
     "@types/multer": "^2.3.0",
     "@types/node": "^22.12.0",
+    "@types/supertest": "^7.2.1",
     "jsdom": "^30.0.0",
     "prettier": "^3.8.1",
+    "supertest": "^7.3.2",
     "typescript": "~6.0.2",
     "vitest": "^5.0.0"
   }

@@ -2,9 +2,9 @@
   <h1>gormcsv Admin</h1>
   @if (cliStatus(); as status) {
     @if (status.ok) {
-      <span class="badge ok">CLI Ready ({{ status.version }})</span>
+      <span class="badge ok" role="status">CLI ready: {{ status.summary }}</span>
     } @else {
-      <span class="badge error">{{ status.error }}</span>
+      <span class="badge error" role="status">{{ status.error }}</span>
     }
   }
 </header>

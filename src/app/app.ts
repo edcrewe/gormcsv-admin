@@ -1,10 +1,10 @@
 import { RouterOutlet } from '@angular/router';
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Component, afterNextRender, inject, signal } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 
-interface HealthStatus {
+export interface HealthStatus {
   ok: boolean;
-  version?: string;
+  summary?: string;
   error?: string;
 }
 
@@ -14,16 +14,27 @@ interface HealthStatus {
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-export class App implements OnInit {
+export class App {
   private http = inject(HttpClient);
   cliStatus = signal<HealthStatus | null>(null);
 
-  ngOnInit() {
+  constructor() {
+    // Routes are prerendered at build time, where a relative /api URL has no server; only check in the browser.
+    afterNextRender(() => this.checkHealth());
+  }
+
+  private checkHealth() {
     this.http.get<HealthStatus>('/api/health').subscribe({
       next: (status) => this.cliStatus.set(status),
-      error: (err) => this.cliStatus.set(err.error ?? { ok: false, error: 'Server unreachable' }),
+      error: (err: HttpErrorResponse) => this.cliStatus.set(toHealthStatus(err)),
     });
   }
 }
 
-
+function toHealthStatus(err: HttpErrorResponse): HealthStatus {
+  const body: unknown = err.error;
+  if (typeof body === 'object' && body !== null && 'ok' in body) {
+    return body as HealthStatus;
+  }
+  return { ok: false, error: 'Server unreachable' };
+}

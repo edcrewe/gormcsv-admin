@@ -6,26 +6,21 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import { join } from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { createApiRouter } from './api/api-router';
+import { createExecRunner } from './api/gormcsv-runner';
 
-const execFileAsync = promisify(execFile);
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
 const angularApp = new AngularNodeAppEngine();
 
 /**
- * Example Express Rest API endpoints can be defined here.
- * Uncomment and define endpoints as necessary.
- *
- * Example:
- * ```ts
- * app.get('/api/{*splat}', (req, res) => {
- *   // Handle API request
- * });
- * ```
+ * API routes are mounted before static files and the Angular handler so they are never rendered as pages.
  */
+app.use(
+  '/api',
+  createApiRouter({ runner: createExecRunner({ binary: process.env['GORMCSV_BIN'] }) }),
+);
 
 /**
  * Serve static files from /browser
@@ -50,16 +45,17 @@ app.use((req, res, next) => {
 
 /**
  * Start the server if this module is the main entry point, or it is ran via PM2.
- * The server listens on the port defined by the `PORT` environment variable, or defaults to 4000.
+ * The admin runs CLI commands against local databases, so it binds to localhost unless HOST overrides it.
  */
 if (isMainModule(import.meta.url) || process.env['pm_id']) {
-  const port = process.env['PORT'] || 4000;
-  app.listen(port, (error) => {
+  const port = Number(process.env['PORT'] || 4000);
+  const host = process.env['HOST'] || '127.0.0.1';
+  app.listen(port, host, (error) => {
     if (error) {
       throw error;
     }
 
-    console.log(`Node Express server listening on http://localhost:${port}`);
+    console.log(`Node Express server listening on http://${host}:${port}`);
   });
 }
 
@@ -67,17 +63,3 @@ if (isMainModule(import.meta.url) || process.env['pm_id']) {
  * Request handler used by the Angular CLI (for dev-server and during build) or Firebase Cloud Functions.
  */
 export const reqHandler = createNodeRequestHandler(app);
-
-// Add health check route
-app.get('/api/health', async (_req, res) => {
-  try {
-    const { stdout } = await execFileAsync('gormcsv', ['--help']);
-    res.json({ ok: true, version: stdout.trim() });
-  } catch (err: any) {
-    res.status(503).json({
-      ok: false,
-      error: 'gormcsv CLI not found in PATH',
-      details: err.message,
-    });
-  }
-});
