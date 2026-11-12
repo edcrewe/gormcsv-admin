@@ -1,0 +1,9 @@
+/* Type-checks the Node-side API tests, which run under plain vitest rather than the Angular test builder. */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/api/**/*.ts"]
+}
