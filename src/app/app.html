@@ -1,0 +1,14 @@
+<header class="admin-header">
+  <h1>gormcsv Admin</h1>
+  @if (cliStatus(); as status) {
+    @if (status.ok) {
+      <span class="badge ok">CLI Ready ({{ status.version }})</span>
+    } @else {
+      <span class="badge error">{{ status.error }}</span>
+    }
+  }
+</header>
+
+<main>
+  <router-outlet />
+</main>
