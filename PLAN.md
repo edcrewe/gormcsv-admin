@@ -1,37 +1,119 @@
-Here is a structured, milestone-based plan to build gormcsv-admin using Angular (with its built-in Node/Express server) as a bridge to your existing gormcsv CLI tool.
+# gormcsv-admin plan
 
-Phase 1: Project Scaffolding & Core Setup
+A django-admin-style UI for [gormcsv](https://github.com/edcrewe/gormcsv), tuned to one workflow:
+upload a CSV, generate its model, migrate the schema, populate the table, then browse the schema
+and records.
 
-Set up a modern Angular workspace with Server-Side Rendering (SSR) enabled so you have a built-in Express server from day one.
-• Initialise the Workspace. Run ng new gormcsv-admin --ssr and configure Tailwind CSS or Angular Material for clean, Django-admin-style layouts and data tables.
-• Configure Code Quality. Set up ESLint, Prettier, and a basic GitHub Actions CI workflow to run linting and unit tests on every pull request.
-• Verify CLI Dependency. Add a health-check endpoint (GET /api/health) in src/server.ts that runs gormcsv --version via child_process.execFile and alerts the UI if gormcsv is missing from the system PATH.
+The Angular SSR Express server (`src/server.ts`) is a local bridge to the `gormcsv` CLI. It is
+also an Angular learning exercise, so features are added one step at a time. Each step is a
+`feat:` commit then a `test:` commit, and stops for review before the next.
 
-Phase 2: Database Connection & Table Explorer (Django Admin Style)
+## Key constraint: models are compiled in
 
-Build the core read-only database explorer so users can inspect existing tables before and after importing CSVs.
-• Node Database Bridge. Add lightweight database drivers in Node (such as better-sqlite3 for local SQLite files and pg/mysql2 for external databases) to query table metadata (INFORMATION_SCHEMA or sqlite_master) and paginate rows.
-• Connection State Service. Create an Angular service using Signals (signal()) to store the active database DSN/path in session storage and attach it to outgoing API requests via an HTTP Interceptor.
-• Dynamic Sidebar & Data Grid. Build a persistent sidebar listing all database tables using Angular Router (/tables/:tableName). Render table rows in a paginated, sortable table with dynamic column headers.
+`gormcsv importcsv` only imports models compiled into its binary (`importcsv.MakeModels()` in a
+generated `importcsv/models.go`). Importing a newly uploaded CSV therefore needs a rebuild, much
+as Django needs a model in code before `migrate`:
 
-Phase 3: CSV Inspection & Schema Mapping Workflow
+1. Store the CSV in a workspace `csv/` dir.
+2. Run `gormcsv inspectcsv -f workspace/csv -o $GORMCSV_SRC/importcsv/models.go`. This regenerates
+   all models, because the file is overwritten.
+3. Run `go build` in `GORMCSV_SRC` (a dedicated gormcsv checkout) to produce `workspace/bin/gormcsv`.
+4. Run `importcsv` with that binary. It AutoMigrates each table, then batch-inserts the rows.
 
-Turn gormcsv's inference and model-generation capabilities into an interactive step-by-step wizard.
-• File Upload & Dry-Run Endpoint. Create POST /api/inspect in src/server.ts using multer. Have it invoke gormcsv in dry-run/inspect mode to parse headers, sample rows, and infer column types.
-• Interactive Schema Editor. Use Angular Reactive Forms (FormArray) to let users review each detected CSV column, rename target fields, override inferred GORM types (string, int, float, bool, time), and toggle primary keys or indexes.
-• Go Struct Preview Drawer. Display the generated Go model definition (models.go) in a clean, copyable code panel so users can verify the exact GORM tags before creating the table.
+Requires Go on the host. Treat `models.go` as generated output: hand edits are lost.
 
-Phase 4: Import Execution & History Logs
+## Conventions
 
-Complete the loop by running the actual import and surfacing gormcsv's structured results.
-• Import Execution Endpoint. Wire POST /api/import in src/server.ts to pass the user's confirmed flags and table mapping options to gormcsv, returning structured JSON metrics (inserted rows, skipped duplicates, and validation errors).
-• Progress & Result Summary. Display upload progress using HttpClient progress events (reportProgress: true), followed by a clear breakdown of imported vs. rejected rows.
-• Import Audit Log. Store a history of import runs (timestamp, filename, target table, row counts, CLI exit status) in a lightweight local SQLite metadata table—mirroring django-csvimport's admin log view.
+Follow [AGENTS.md](AGENTS.md) for all Angular and TypeScript code. In particular:
 
-Phase 5: Open-Source Polish & Packaging
+- Standalone components (no `standalone: true`), default OnPush, lazy-loaded feature routes.
+- Signals for state, `computed()` for derived state, `linkedSignal()` for synced state, never
+  `mutate`.
+- `inject()` not constructor injection. `@Service` for new root singletons.
+- `input()`/`output()`/`model()`, not decorators. `host` object, not `@HostBinding`/`@HostListener`.
+- Signal Forms (`@angular/forms/signals`) for new forms.
+- Native control flow (`@if`/`@for`/`@switch`), `class`/`style` bindings, no `CommonModule`.
+- Small single-purpose components, inline templates when small.
+- Strict TypeScript, no `any` (use `unknown` and narrow).
+- Must pass AXE checks and meet WCAG AA: focus management, contrast, ARIA.
 
-Prepare the repository for external contributors and easy local execution.
-• Single-Command Launch. Add a bin entry in package.json so developers can launch the entire app locally via npx gormcsv-admin once published to npm.
-• Sample Data & Quickstart. Include a samples/ directory with example CSVs and a pre-seeded SQLite database so new users can test the UI immediately after cloning.
-• Documentation. Write a clear README.md covering prerequisites (Node.js and gormcsv), screenshots of the workflow, and a CONTRIBUTING.md with labelled starter issues.
-Would you like to start by generating the starter folder structure and server.ts API routes for Phase 1 and Phase 2, or would you prefer to map out the exact gormcsv CLI flags you want exposed in the schema editor first?
+Project-specific:
+
+- UI: Angular Material + CDK (`mat-table`, paginator, sort, stepper, sidenav).
+- API: Express routers in `src/api/`, built from factories that take injected dependencies
+  (`createApiRouter({ runner })`), mounted on `/api` before the Angular SSR handler.
+- Security: bind to `127.0.0.1` by default. The server owns DSNs (the browser never sends one).
+  Sanitise uploaded filenames. Validate table and column names against the real schema before
+  using them in SQL.
+- Tests:
+  - `*.spec.ts`: Angular specs, run with `npm test` (vitest + jsdom). Use `HttpTestingController`
+    for HTTP.
+  - `*.test.ts`: Node API tests, run with `npm run test:server` (tsc check, vitest, supertest with
+    a fake runner). Real-CLI and real-build integration tests are opt-in via an environment
+    variable.
+  - `npx prettier --check` and `ng build` must pass before each commit.
+
+## Phases
+
+### Phase 0: Baseline fix (done)
+
+- API router with an injectable, timeout-bounded `gormcsv` runner. JSON 404 for unknown `/api`
+  paths.
+- Health check (`gormcsv --help`) runs in the browser only via `afterNextRender`, so build-time
+  prerender doesn't call `/api`.
+- SSR `allowedHosts` for localhost. Lockfile tracked. Prettier config restored.
+- Split test harness for specs and server tests.
+
+### Phase 1: Admin shell
+
+- Material sidenav and toolbar layout.
+- Lazy routes: `/import`, `/models`, `/tables`, `/history`.
+- `CliStatusService` (signals) replaces the health logic in `App`.
+
+### Phase 2: Upload and inspect
+
+- `POST /api/inspect` (multer in-memory storage, `.csv` only, size limit, per-request temp dir
+  removed afterwards). Returns the generated Go model.
+- Upload component with a copyable model preview.
+
+### Phase 3: Model workspace
+
+- Register a model: store the CSV, regenerate `models.go`, build the workspace binary.
+- Builds are serialised and timeout-bounded, and build errors are shown in the UI.
+- A models list shows what the current binary can import.
+
+### Phase 4: Migrate and populate
+
+- `POST /api/import` runs the workspace binary.
+- Parse the `<model>: inserted N, skipped N duplicates, rejected N` lines into JSON. A non-zero
+  exit returns the partial results with the error.
+- Signal Forms for batch size and workers. Material results table.
+
+### Phase 5: Connection config
+
+- Server-side driver and DSN from environment variables, SQLite first.
+- Shown read-only in the UI.
+
+### Phase 6: Schema browser
+
+- `GET /api/tables` and `GET /api/tables/:name/schema` (better-sqlite3).
+- Sidebar table list and column/type detail view at `/tables/:name`.
+
+### Phase 7: Record browser
+
+- Paginated, sortable rows in `mat-table` with paginator and sort.
+- Identifiers validated against the schema. Includes injection tests.
+
+### Phase 8: Import history
+
+- Audit log in a metadata SQLite file: time, file, model, counts, exit status.
+- History view, like django-csvimport's log.
+
+### Later
+
+- Schema editor to override inferred types before generating models.
+- Postgres/MySQL browsing.
+- ESLint and GitHub Actions CI.
+- `npx gormcsv-admin` bin entry.
+- `samples/` with example CSVs.
+- README and screenshots.

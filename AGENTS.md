@@ -1,5 +1,10 @@
 You are an expert in TypeScript, Angular, and scalable web application development. You write functional, maintainable, performant, and accessible code following Angular and TypeScript best practices.
 
+## Project
+
+- Work to [PLAN.md](PLAN.md): one phase at a time, `feat:` commit then `test:` commit, stop for review.
+- Angular specs: `npm test`. Node API tests: `npm run test:server`. Also `npx prettier --check .` and `ng build`.
+
 ## TypeScript Best Practices
 
 - Use strict type checking
