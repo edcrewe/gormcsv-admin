@@ -6,7 +6,8 @@ import express from 'express';
 import request from 'supertest';
 import { createApiRouter } from './api-router';
 import { CommandError, GormcsvRunner } from './commands';
-import { cliWarnings, safeCsvName } from './inspect';
+import { cliWarnings } from './inspect';
+import { safeCsvName } from './upload';
 
 const FIXTURE = 'fixtures/TestTypes.csv';
 const GOLDEN = 'fixtures/inspect-golden.models.go';
@@ -64,7 +65,7 @@ describe('POST /api/inspect', () => {
 
     const [{ args, csv }] = seen;
     expect(args[0]).toBe('inspectcsv');
-    expect(argValue(args, '--files')).toMatch(/gormcsv-inspect-[^/]+\/TestTypes\.csv$/);
+    expect(argValue(args, '--files')).toMatch(/gormcsv-upload-[^/]+\/TestTypes\.csv$/);
     expect(dirname(argValue(args, '--output'))).toBe(dirname(argValue(args, '--files')));
     expect(dirname(dirname(argValue(args, '--files')))).toBe(tempRoot);
     expect(csv).toBe(await readFile(FIXTURE, 'utf8'));

@@ -8,6 +8,9 @@ import { By } from '@angular/platform-browser';
 import { App, NAV_ITEMS } from './app';
 import { routes } from './app.routes';
 import { expectNoAxeViolations } from '../testing/axe';
+import { WorkspaceStatus } from '../shared/api-types';
+
+const EMPTY_WORKSPACE: WorkspaceStatus = { ready: true, files: [], models: [], binary: null };
 
 describe('App shell', () => {
   let httpTesting: HttpTestingController;
@@ -31,7 +34,13 @@ describe('App shell', () => {
   async function renderAt(url: string) {
     const fixture = TestBed.createComponent(App);
     await router.navigateByUrl(url);
-    await fixture.whenStable();
+    // Pages that load data (e.g. Models via httpResource) keep the app unstable until answered.
+    const stable = fixture.whenStable();
+    for (let i = 0; i < 5; i++) {
+      await new Promise((resolve) => setTimeout(resolve));
+      httpTesting.match('/api/models').forEach((req) => req.flush(EMPTY_WORKSPACE));
+    }
+    await stable;
     const el = fixture.nativeElement as HTMLElement;
     return { fixture, el };
   }

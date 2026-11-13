@@ -18,6 +18,32 @@ for coding conventions.
 npm install
 ```
 
+### Model workspace
+
+gormcsv can only import models compiled into its binary. Registering a CSV therefore regenerates
+`importcsv/models.go` in a gormcsv source checkout and runs `go build`, so you also need Go 1.25+
+and a C compiler. The admin overwrites `models.go` in that checkout, so give it its own detached
+worktree rather than your working copy:
+
+```bash
+mkdir -p ~/.local/share/gormcsv-admin
+git -C ~/projects/gormcsv worktree add --detach ~/.local/share/gormcsv-admin/gormcsv-src master
+```
+
+The workspace dir then holds:
+
+- `gormcsv-src/`, the checkout
+- `csv/`, the registered CSVs, one per model
+- `bin/gormcsv`, the built binary
+
+To move the checkout to a newer gormcsv, discard the generated file and re-register a model to
+rebuild:
+
+```bash
+git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout -- importcsv/models.go
+git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout --detach master
+```
+
 ## Run the frontend
 
 Development server with live reload, serving both the UI and `/api`:
@@ -35,11 +61,14 @@ npm run build                    # ng build -> dist/gormcsv-admin
 npm run serve:ssr:gormcsv-admin  # http://127.0.0.1:4000
 ```
 
-| Variable      | Default     | Purpose                                              |
-| ------------- | ----------- | ---------------------------------------------------- |
-| `PORT`        | `4000`      | Production server port                               |
-| `HOST`        | `127.0.0.1` | Bind address. Kept local because the API runs a CLI. |
-| `GORMCSV_BIN` | `gormcsv`   | Path to the gormcsv binary                           |
+| Variable            | Default                          | Purpose                                              |
+| ------------------- | -------------------------------- | ---------------------------------------------------- |
+| `PORT`              | `4000`                           | Production server port                               |
+| `HOST`              | `127.0.0.1`                      | Bind address. Kept local because the API runs a CLI. |
+| `GORMCSV_BIN`       | `gormcsv`                        | Path to the gormcsv binary                           |
+| `GORMCSV_WORKSPACE` | `~/.local/share/gormcsv-admin`   | Model workspace dir                                  |
+| `GORMCSV_SRC`       | `$GORMCSV_WORKSPACE/gormcsv-src` | gormcsv checkout the admin builds                    |
+| `GO_BIN`            | `go`                             | Go toolchain used for builds                         |
 
 SSR only answers requests for `localhost` and `127.0.0.1` (`security.allowedHosts` in
 `angular.json`). Add a host there if you serve it under another name.
@@ -64,6 +93,13 @@ another build:
 GORMCSV_BIN=/path/to/gormcsv npm run test:server:it
 ```
 
+The workspace integration test also needs `GORMCSV_SRC_REPO`. It builds gormcsv for real in a
+temporary detached worktree of that repo, then imports with the result:
+
+```bash
+GORMCSV_SRC_REPO=~/projects/gormcsv npm run test:server:it
+```
+
 `fixtures/` holds test data:
 
 - `TestTypes.csv` and `Country.csv`, copied from gormcsv's `static/fixtures`. `Country.csv` has a
@@ -85,12 +121,13 @@ job builds gormcsv master with `make build` and runs `npm run test:server:it` ag
 ```text
 src/
   server.ts        Express server: /api router, static files, Angular SSR handler
-  api/             API routers (health, inspect) and the gormcsv runner, with *.test.ts beside them
+  api/             API routers (health, inspect, models), the model workspace and command runner,
+                   with *.test.ts beside them
   shared/          JSON types shared by the API and the Angular app
   app/             Angular app, with *.spec.ts beside components
     core/          App-wide services and components (CLI status)
     features/      One lazy-loaded page per route
-    shared/        Reusable UI components (CodePanel)
+    shared/        Reusable UI components (CodePanel, ModelFieldsTable)
   testing/         Spec helpers, such as expectNoAxeViolations
 ```
 

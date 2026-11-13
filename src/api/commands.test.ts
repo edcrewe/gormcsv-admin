@@ -1,4 +1,7 @@
-import { createExecRunner, errorMessage, CommandError } from './commands';
+import { mkdtemp, realpath, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { CommandError, createCommandRunner, createExecRunner, errorMessage } from './commands';
 
 // Uses `node` as a stand-in binary so the real execFile path is exercised without needing gormcsv installed.
 describe('createExecRunner', () => {
@@ -40,7 +43,46 @@ describe('createExecRunner', () => {
 
     const err = await run(['-e', 'setTimeout(() => {}, 5000)']).catch((e: unknown) => e);
 
-    expect(err).toMatchObject({ timedOut: true, message: 'gormcsv timed out after 100ms' });
+    expect(err).toMatchObject({
+      timedOut: true,
+      message: `${process.execPath} timed out after 100ms`,
+    });
+  });
+});
+
+describe('createCommandRunner', () => {
+  it('runs in the given working directory', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'cmd-test-'));
+    try {
+      const run = createCommandRunner();
+
+      const { stdout } = await run(process.execPath, ['-e', 'console.log(process.cwd())'], {
+        cwd: dir,
+      });
+
+      expect(stdout.trim()).toBe(await realpath(dir));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('names the command in timeout errors', async () => {
+    const run = createCommandRunner();
+
+    const err = await run(process.execPath, ['-e', 'setTimeout(() => {}, 5000)'], {
+      timeoutMs: 100,
+    }).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(CommandError);
+    expect(err).toMatchObject({ timedOut: true, exitCode: null });
+  });
+
+  it('captures output larger than the execFile 1 MiB default', async () => {
+    const run = createCommandRunner();
+
+    const { stdout } = await run(process.execPath, ['-e', 'process.stdout.write("x".repeat(2e6))']);
+
+    expect(stdout).toHaveLength(2_000_000);
   });
 });
 

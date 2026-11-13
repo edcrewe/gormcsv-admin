@@ -80,4 +80,6 @@ jobs:
       - name: API tests including real-CLI integration tests
         env:
           GORMCSV_BIN: ${{ github.workspace }}/gormcsv-src/gormcsv
+          # Lets the workspace integration test build gormcsv from a worktree of this clone.
+          GORMCSV_SRC_REPO: ${{ github.workspace }}/gormcsv-src
         run: npm run test:server:it

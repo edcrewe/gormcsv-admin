@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 import { InspectResult } from '../../../shared/api-types';
 import { ImportPage } from './import-page';
 import { expectNoAxeViolations } from '../../../testing/axe';
@@ -27,7 +28,7 @@ describe('ImportPage', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [ImportPage],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     });
     httpTesting = TestBed.inject(HttpTestingController);
   });
@@ -107,6 +108,22 @@ describe('ImportPage', () => {
     expect(document.activeElement).toBe(heading);
     expect(el.querySelectorAll('app-model-fields-table tbody tr')).toHaveLength(2);
     expect(el.querySelector('app-code-panel pre')?.textContent).toBe(RESULT.source);
+  });
+
+  it('offers step 2, registering the inspected model, only once there is a result', async () => {
+    const { fixture, el, choose, inspect } = await render();
+    await choose();
+    expect(el.querySelector('app-register-model')).toBeNull();
+
+    await inspect();
+    httpTesting.expectOne('/api/inspect').flush(RESULT);
+    await fixture.whenStable();
+
+    const step = el.querySelector('app-register-model')!;
+    expect(step.querySelector('button')?.textContent?.trim()).toBe('Register TestTypes');
+
+    await choose('other.csv');
+    expect(el.querySelector('app-register-model')).toBeNull();
   });
 
   it('shows no warnings box when there are none', async () => {

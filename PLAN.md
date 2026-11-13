@@ -10,29 +10,30 @@ also an Angular learning exercise, so features are added one step at a time. Eac
 
 ## Status (2026-11-13)
 
-Phases 0 to 2 are done: 41 Angular specs and 37 API tests pass (42 including the real-CLI
-integration tests), and the build passes. Inspect warnings, such as skipped ragged rows, are shown
-with the model, and the status badge shows the `gormcsv version`.
+Phases 0 to 3 are done: 58 Angular specs and 65 API tests pass (71 including the real-CLI and
+real-build integration tests), and the build passes. CI runs them all on push.
 
-**Next: Phase 3, model workspace.** Intended shape:
+**Next: Phase 4, migrate and populate.** Intended shape:
 
-- Config: `GORMCSV_SRC` is a dedicated gormcsv checkout (not `~/projects/gormcsv`), and
-  `WORKSPACE_DIR` holds `csv/` and `bin/`.
-- `POST /api/models` registers the CSV from an inspect. Store it in `csv/`, run
-  `inspectcsv -f csv/ -o $GORMCSV_SRC/importcsv/models.go`, then
-  `go build -o bin/gormcsv` in `GORMCSV_SRC`.
-- Builds are serialised (one at a time) and have a timeout. The `go build` runner is injected
-  like the gormcsv one.
-- `GET /api/models` reports what the workspace binary was built with.
-- UI: a "Register model" action after inspect, plus the `/models` list page.
+- `POST /api/import` runs the workspace `bin/gormcsv importcsv` for registered models (one CSV or
+  all of `csv/`).
+- Parse the `<model>: inserted N, skipped N duplicates, rejected N` lines from stdout.
+  `importcsv` exits 1 when any row is rejected (e.g. Country line 148), so `CommandError` must
+  also carry stdout, and that case returns the partial results plus the row errors from stderr.
+- Signal Forms for batch size and workers. Driver and DSN stay server-side (Phase 5); use a
+  default SQLite DB in the workspace until then.
+- Material results table, and an "Import" action on the Models page and after registering.
 
 Notes for picking up:
 
 - gormcsv master (merged and pushed) now has ragged-row skipping in `inspectcsv` and a `version`
   command. The admin's health check and integration tests rely on both. Commit further gormcsv
   fixes found during this work in `~/projects/gormcsv`, checking the branch first.
-- Initial bundle is about 481 kB against a 500 kB warning budget. Material button code is
-  shared, so it now loads with `main`.
+- Initial bundle is about 503 kB. The warning budget was raised to 600 kB (error still 1 MB)
+  because the shared Material and Angular resource code now loads with `main`.
+- Workspace: a detached worktree at `~/.local/share/gormcsv-admin/gormcsv-src`, with `csv/` and
+  `bin/` beside it. The built binary's `models.go` is copied to `bin/models.go`, so the Models
+  page stays right even if the worktree is updated.
 - VS Code: if test globals go missing, run "TypeScript: Restart TS Server". All three tsconfigs
   are referenced from `tsconfig.json`.
 - Stop a background server by PID, not `pkill -f`, which can match the calling shell.
@@ -112,7 +113,7 @@ Project-specific:
 - Import page: file chooser, progress, error alert, focus moved to the results.
   `ModelFieldsTable` (`mat-table`) and a copyable `CodePanel`.
 
-### Phase 3: Model workspace
+### Phase 3: Model workspace (done)
 
 - Register a model: store the CSV, regenerate `models.go`, build the workspace binary.
 - Builds are serialised and timeout-bounded, and build errors are shown in the UI.
