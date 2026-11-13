@@ -11,7 +11,8 @@ export interface ApiError {
 
 export interface HealthStatus {
   ok: boolean;
-  summary?: string;
+  /** From `gormcsv version`: a tag, or latest tag plus commits since and short hash. */
+  version?: string;
   error?: string;
   details?: string;
 }

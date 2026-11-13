@@ -9,11 +9,11 @@ import { CliStatusService } from './cli-status.service';
     <span role="status" aria-live="polite">
       @if (cli.status(); as status) {
         @if (status.ok) {
-          <span class="badge ok" [title]="status.summary ?? ''">
-            <mat-icon aria-hidden="true">check_circle</mat-icon>CLI ready
+          <span class="badge ok">
+            <mat-icon aria-hidden="true">check_circle</mat-icon>gormcsv {{ status.version }}
           </span>
         } @else {
-          <span class="badge error">
+          <span class="badge error" [title]="status.details ?? ''">
             <mat-icon aria-hidden="true">error</mat-icon>{{ status.error }}
           </span>
         }

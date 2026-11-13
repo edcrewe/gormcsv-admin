@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { HealthStatus } from '../shared/api-types';
-import { GormcsvRunner, errorMessage } from './gormcsv-runner';
+import { GormcsvError, GormcsvRunner, errorMessage } from './gormcsv-runner';
 import { InspectDeps, createInspectRouter } from './inspect';
 
 export interface ApiDeps {
@@ -11,17 +11,18 @@ export interface ApiDeps {
 export function createApiRouter({ runner, inspect = {} }: ApiDeps): Router {
   const router = Router();
 
-  // gormcsv has no --version flag, so --help proves the binary runs and its first line identifies it.
+  // `gormcsv version` prints e.g. "gormcsv v0.3.1-3-g4446d92". Older binaries without the command
+  // also lack ragged-row skipping, so they are reported as unusable rather than ready.
   router.get('/health', async (_req, res) => {
     try {
-      const { stdout } = await runner(['--help']);
-      const body: HealthStatus = { ok: true, summary: stdout.trim().split('\n')[0] };
+      const { stdout } = await runner(['version']);
+      const body: HealthStatus = { ok: true, version: stdout.trim().replace(/^gormcsv\s+/, '') };
       res.json(body);
     } catch (err: unknown) {
       const body: HealthStatus = {
         ok: false,
-        error: 'gormcsv CLI not available',
-        details: errorMessage(err),
+        error: 'gormcsv CLI not available or too old',
+        details: err instanceof GormcsvError ? err.cliMessage : errorMessage(err),
       };
       res.status(503).json(body);
     }
