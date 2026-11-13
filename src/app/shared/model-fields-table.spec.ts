@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
-import { GoModel } from '../../../shared/api-types';
+import { GoModel } from '../../shared/api-types';
 import { ModelFieldsTable } from './model-fields-table';
-import { expectNoAxeViolations } from '../../../testing/axe';
+import { expectNoAxeViolations } from '../../testing/axe';
 
 const MODEL: GoModel = {
   name: 'OrderItem',

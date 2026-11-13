@@ -42,6 +42,33 @@ export interface InspectResult {
   warnings: string[];
 }
 
+/** The workspace gormcsv binary that can import the registered models. */
+export interface WorkspaceBinary {
+  /** `gormcsv version` of the build; ends in -dirty because models.go is regenerated. */
+  version: string;
+  /** ISO timestamp of the last successful build. */
+  builtAt: string;
+}
+
+export interface WorkspaceStatus {
+  /** False when the gormcsv source checkout is missing or unusable; see problem. */
+  ready: boolean;
+  problem?: string;
+  /** Registered CSV filenames, one per model. */
+  files: string[];
+  /** Models compiled into the workspace binary, parsed from its models.go. */
+  models: GoModel[];
+  /** Null until the first successful build. */
+  binary: WorkspaceBinary | null;
+}
+
+export interface RegisterResult {
+  /** Filename the model was registered from. */
+  file: string;
+  warnings: string[];
+  status: WorkspaceStatus;
+}
+
 export function isApiError(value: unknown): value is ApiError {
   return (
     typeof value === 'object' &&

@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import express from 'express';
 import request from 'supertest';
 import { createApiRouter } from './api-router';
-import { GormcsvError, GormcsvRunner } from './gormcsv-runner';
+import { CommandError, GormcsvRunner } from './commands';
 import { cliWarnings, safeCsvName } from './inspect';
 
 const FIXTURE = 'fixtures/TestTypes.csv';
@@ -143,7 +143,7 @@ describe('POST /api/inspect', () => {
     const runner = vi.fn<GormcsvRunner>(async (args) => {
       const path = argValue(args, '--files');
       const line = `inspect "${path}": record on line 148: wrong number of fields`;
-      throw new GormcsvError('Command failed', `Error: ${line}\n${line}\n`, 1);
+      throw new CommandError('Command failed', `Error: ${line}\n${line}\n`, 1);
     });
 
     const res = await request(appWith(runner)).post('/api/inspect').attach('file', FIXTURE);
@@ -159,7 +159,7 @@ describe('POST /api/inspect', () => {
   it('returns 500 when the CLI times out', async () => {
     const runner = vi
       .fn<GormcsvRunner>()
-      .mockRejectedValue(new GormcsvError('gormcsv timed out after 30000ms', '', null, true));
+      .mockRejectedValue(new CommandError('gormcsv timed out after 30000ms', '', null, true));
 
     const res = await request(appWith(runner)).post('/api/inspect').attach('file', FIXTURE);
 

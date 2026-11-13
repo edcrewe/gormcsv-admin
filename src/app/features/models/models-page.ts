@@ -1,10 +1,41 @@
-import { Component } from '@angular/core';
+import { Component, computed } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { HttpErrorResponse, httpResource } from '@angular/common/http';
+import { RouterLink } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { WorkspaceStatus, isApiError } from '../../../shared/api-types';
+import { ModelFieldsTable } from '../../shared/model-fields-table';
 
 @Component({
   selector: 'app-models-page',
-  template: `
-    <h2>Models</h2>
-    <p>Models compiled into the workspace gormcsv binary. Coming in phase 3.</p>
-  `,
+  imports: [
+    DatePipe,
+    RouterLink,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressBarModule,
+    ModelFieldsTable,
+  ],
+  templateUrl: './models-page.html',
+  styleUrl: './models-page.scss',
 })
-export class ModelsPage {}
+export class ModelsPage {
+  // httpResource fetches on creation and exposes value, error and loading state as signals.
+  protected readonly workspace = httpResource<WorkspaceStatus>(() => '/api/models');
+
+  protected readonly status = computed(() =>
+    this.workspace.hasValue() ? this.workspace.value() : null,
+  );
+  protected readonly loadError = computed(() => {
+    const err = this.workspace.error();
+    if (!err) return null;
+    if (err instanceof HttpErrorResponse && isApiError(err.error)) return err.error.error;
+    return 'Could not load the workspace';
+  });
+
+  protected reload(): void {
+    this.workspace.reload();
+  }
+}

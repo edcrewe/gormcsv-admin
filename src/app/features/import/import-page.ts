@@ -14,7 +14,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { InspectResult } from '../../../shared/api-types';
 import { CodePanel } from '../../shared/code-panel';
 import { InspectService } from './inspect.service';
-import { ModelFieldsTable } from './model-fields-table';
+import { ModelFieldsTable } from '../../shared/model-fields-table';
+import { RegisterModel } from './register-model';
 
 type InspectState =
   | { kind: 'idle' }
@@ -24,7 +25,14 @@ type InspectState =
 
 @Component({
   selector: 'app-import-page',
-  imports: [MatButtonModule, MatIconModule, MatProgressBarModule, CodePanel, ModelFieldsTable],
+  imports: [
+    MatButtonModule,
+    MatIconModule,
+    MatProgressBarModule,
+    CodePanel,
+    ModelFieldsTable,
+    RegisterModel,
+  ],
   templateUrl: './import-page.html',
   styleUrl: './import-page.scss',
 })

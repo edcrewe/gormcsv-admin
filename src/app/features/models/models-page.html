@@ -1,0 +1,63 @@
+<div class="heading">
+  <h2>Models</h2>
+  <button matButton type="button" [disabled]="workspace.isLoading()" (click)="reload()">
+    <mat-icon aria-hidden="true">refresh</mat-icon>
+    Refresh
+  </button>
+</div>
+<p>
+  Models compiled into the workspace gormcsv. Register a CSV from the
+  <a routerLink="/import">Import CSV</a> page to add or update one.
+</p>
+
+@if (workspace.isLoading()) {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading models" />
+}
+
+@if (loadError(); as message) {
+  <div class="error" role="alert">
+    <mat-icon aria-hidden="true">error</mat-icon>
+    {{ message }}
+  </div>
+}
+
+@if (status(); as status) {
+  @if (!status.ready) {
+    <div class="error" role="alert">
+      <mat-icon aria-hidden="true">error</mat-icon>
+      <span>
+        {{ status.problem }}. Create it as a detached worktree of gormcsv, as described in the
+        README.
+      </span>
+    </div>
+  }
+
+  <section aria-labelledby="binary-heading">
+    <h3 id="binary-heading">Workspace gormcsv</h3>
+    @if (status.binary; as binary) {
+      <dl>
+        <dt>Version</dt>
+        <dd>
+          <code>{{ binary.version }}</code>
+        </dd>
+        <dt>Built</dt>
+        <dd>{{ binary.builtAt | date: 'medium' }}</dd>
+        <dt>CSV files</dt>
+        <dd>{{ status.files.join(', ') }}</dd>
+      </dl>
+    } @else {
+      <p>Not built yet. Register a model to build it.</p>
+    }
+  </section>
+
+  @if (status.models.length) {
+    <section aria-labelledby="registered-heading">
+      <h3 id="registered-heading">
+        {{ status.models.length }} registered {{ status.models.length === 1 ? 'model' : 'models' }}
+      </h3>
+      @for (model of status.models; track model.name) {
+        <app-model-fields-table [model]="model" />
+      }
+    </section>
+  }
+}

@@ -67,4 +67,8 @@
     }
     <app-code-panel [code]="result.source" label="models.go" />
   </section>
+
+  @if (file(); as f) {
+    <app-register-model [file]="f" [modelName]="result.models[0]?.name ?? f.name" />
+  }
 }

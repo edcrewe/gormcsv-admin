@@ -1,6 +1,6 @@
 import { Component, input } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
-import { GoModel } from '../../../shared/api-types';
+import { GoModel } from '../../shared/api-types';
 
 /** The fields gormcsv inferred for one model, with their Go types. */
 @Component({

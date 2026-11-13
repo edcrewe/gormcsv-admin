@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { createApiRouter } from './api-router';
-import { GormcsvError, GormcsvRunner } from './gormcsv-runner';
+import { CommandError, GormcsvRunner } from './commands';
 
 function appWith(runner: GormcsvRunner) {
   const app = express();
@@ -40,7 +40,7 @@ describe('GET /api/health', () => {
       'Error: unknown command "version" for "gormcsv"\nRun \'gormcsv --help\' for usage.\n';
     const runner = vi
       .fn<GormcsvRunner>()
-      .mockRejectedValue(new GormcsvError('Command failed: gormcsv version', stderr, 1));
+      .mockRejectedValue(new CommandError('Command failed: gormcsv version', stderr, 1));
 
     const res = await request(appWith(runner)).get('/api/health');
 

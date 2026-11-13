@@ -5,9 +5,11 @@ import {
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
 import express from 'express';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createApiRouter } from './api/api-router';
-import { createExecRunner } from './api/gormcsv-runner';
+import { createCommandRunner, createExecRunner } from './api/commands';
+import { ModelWorkspace } from './api/workspace';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
@@ -17,9 +19,23 @@ const angularApp = new AngularNodeAppEngine();
 /**
  * API routes are mounted before static files and the Angular handler so they are never rendered as pages.
  */
+const env = process.env;
+const run = createCommandRunner();
+const workspaceDir =
+  env['GORMCSV_WORKSPACE'] || join(homedir(), '.local', 'share', 'gormcsv-admin');
+const workspace = new ModelWorkspace({
+  dir: workspaceDir,
+  srcDir: env['GORMCSV_SRC'] || join(workspaceDir, 'gormcsv-src'),
+  run,
+  gormcsvBin: env['GORMCSV_BIN'],
+  goBin: env['GO_BIN'],
+});
 app.use(
   '/api',
-  createApiRouter({ runner: createExecRunner({ binary: process.env['GORMCSV_BIN'] }) }),
+  createApiRouter({
+    runner: createExecRunner({ binary: env['GORMCSV_BIN'], run }),
+    workspace,
+  }),
 );
 
 /**

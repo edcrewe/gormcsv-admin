@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { createApiRouter } from './api-router';
-import { createExecRunner } from './gormcsv-runner';
+import { createExecRunner } from './commands';
 
 // Opt-in: runs the real gormcsv binary (GORMCSV_BIN or PATH). Run with `npm run test:server:it`.
 describe.skipIf(!process.env['GORMCSV_IT'])('POST /api/inspect with the real gormcsv CLI', () => {
