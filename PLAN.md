@@ -149,7 +149,7 @@ Project-specific:
 
 - Schema editor to override inferred types before generating models.
 - Postgres/MySQL browsing.
-- ESLint and GitHub Actions CI.
+- ESLint. GitHub Actions CI is done: `.github/workflows/test.yml`.
 - `npx gormcsv-admin` bin entry.
 - `samples/` with example CSVs.
 - README and screenshots.

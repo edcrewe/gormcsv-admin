@@ -77,6 +77,9 @@ Before committing:
 npm test -- --watch=false && npm run test:server && npx prettier --check . && npm run build
 ```
 
+CI (`.github/workflows/test.yml`) runs the same checks on every push and pull request. A second
+job builds gormcsv master with `make build` and runs `npm run test:server:it` against it.
+
 ## Layout
 
 ```text
