@@ -46,13 +46,21 @@ SSR only answers requests for `localhost` and `127.0.0.1` (`security.allowedHost
 
 ## Run the tests
 
-| Command               | What it runs                                                           |
-| --------------------- | ---------------------------------------------------------------------- |
-| `npm test`            | Angular component specs (`src/**/*.spec.ts`) with Vitest and jsdom     |
-| `npm run test:server` | Type-check, then Node API tests (`src/api/**/*.test.ts`) via supertest |
+| Command                  | What it runs                                                           |
+| ------------------------ | ---------------------------------------------------------------------- |
+| `npm test`               | Angular component specs (`src/**/*.spec.ts`) with Vitest and jsdom     |
+| `npm run test:server`    | Type-check, then Node API tests (`src/api/**/*.test.ts`) via supertest |
+| `npm run test:server:it` | The API tests plus `*.it.test.ts`, which run the real `gormcsv` binary |
 
 Run `npm test -- --watch=false` for a single pass instead of watch mode. API tests use a fake
-`gormcsv` runner, so they don't need the binary installed.
+`gormcsv` runner, so they don't need the binary installed. Integration tests are skipped unless
+`GORMCSV_IT=1` is set, which `test:server:it` does.
+
+`fixtures/` holds test data:
+
+- `TestTypes.csv` and `Country.csv`, copied from gormcsv's `static/fixtures`. `Country.csv` has a
+  deliberately short row on line 148, which `inspectcsv` rejects.
+- `inspect-golden.models.go`, real `inspectcsv` output used to test the Go model parser.
 
 Before committing:
 
@@ -65,10 +73,12 @@ npm test -- --watch=false && npm run test:server && npx prettier --check . && np
 ```text
 src/
   server.ts        Express server: /api router, static files, Angular SSR handler
-  api/             API routers and the gormcsv runner, with *.test.ts beside them
+  api/             API routers (health, inspect) and the gormcsv runner, with *.test.ts beside them
+  shared/          JSON types shared by the API and the Angular app
   app/             Angular app, with *.spec.ts beside components
     core/          App-wide services and components (CLI status)
     features/      One lazy-loaded page per route
+    shared/        Reusable UI components (CodePanel)
   testing/         Spec helpers, such as expectNoAxeViolations
 ```
 

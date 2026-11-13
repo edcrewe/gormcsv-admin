@@ -8,6 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:server": "tsc -p tsconfig.server-spec.json && vitest run --config vitest.server.config.mts",
+    "test:server:it": "GORMCSV_IT=1 npm run test:server",
     "serve:ssr:gormcsv-admin": "node dist/gormcsv-admin/server/server.mjs"
   },
   "prettier": {

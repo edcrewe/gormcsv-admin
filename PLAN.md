@@ -8,35 +8,29 @@ The Angular SSR Express server (`src/server.ts`) is a local bridge to the `gormc
 also an Angular learning exercise, so features are added one step at a time. Each step is a
 `feat:` commit then a `test:` commit, and stops for review before the next.
 
-## Status (2026-11-12)
+## Status (2026-11-13)
 
-Phases 0 and 1 are done: 20 Angular specs and 8 API tests pass, and the build passes.
+Phases 0 to 2 are done: 39 Angular specs and 33 API tests pass (36 including the real-CLI
+integration tests), and the build passes.
 
-**Next: Phase 2, upload and inspect.** Intended shape:
+**Next: Phase 3, model workspace.** Intended shape:
 
-- API:
-  - `src/api/inspect.ts` router with `POST /api/inspect`. Use multer in-memory storage with a size
-    limit.
-  - Reduce the filename to `path.basename` and require a `.csv` extension.
-  - Write the file to a per-request `mkdtemp` dir and run
-    `inspectcsv -f <dir>/<name>.csv -o <dir>/models.go` through the injected runner. Return
-    `{ model, source }`, and always remove the temp dir.
-  - The model name comes from the filename: `order-item.csv` gives `OrderItem`.
-- UI:
-  - Build out the `features/import/import-page.ts` placeholder with an accessible Material file
-    input.
-  - Show the generated Go source in a copyable code panel.
-  - Add a `ModelPreview` component that takes `input()`.
-- Tests:
-  - `src/api/inspect.test.ts` with a fake runner (bad extension, path traversal name, size
-    limit, CLI failure, cleanup).
-  - An opt-in real-CLI integration test, e.g. `GORMCSV_IT=1`.
-  - Component specs using `HttpTestingController`, plus AXE.
+- Config: `GORMCSV_SRC` is a dedicated gormcsv checkout (not `~/projects/gormcsv`), and
+  `WORKSPACE_DIR` holds `csv/` and `bin/`.
+- `POST /api/models` registers the CSV from an inspect. Store it in `csv/`, run
+  `inspectcsv -f csv/ -o $GORMCSV_SRC/importcsv/models.go`, then
+  `go build -o bin/gormcsv` in `GORMCSV_SRC`.
+- Builds are serialised (one at a time) and have a timeout. The `go build` runner is injected
+  like the gormcsv one.
+- `GET /api/models` reports what the workspace binary was built with.
+- UI: a "Register model" action after inspect, plus the `/models` list page.
 
 Notes for picking up:
 
-- Verify the exact `inspectcsv` output and model naming against the real CLI before writing the
-  parser.
+- gormcsv: `inspectcsv` fails the whole file on a ragged row, while `importcsv` skips the row.
+  This is a gormcsv inconsistency, not an admin bug.
+- Initial bundle is about 481 kB against a 500 kB warning budget. Material button code is
+  shared, so it now loads with `main`.
 - VS Code: if test globals go missing, run "TypeScript: Restart TS Server". All three tsconfigs
   are referenced from `tsconfig.json`.
 - Stop a background server by PID, not `pkill -f`, which can match the calling shell.
@@ -106,11 +100,15 @@ Project-specific:
 - `CliStatusService` (signals) replaces the health logic in `App`.
 - AXE checks in component specs.
 
-### Phase 2: Upload and inspect
+### Phase 2: Upload and inspect (done)
 
-- `POST /api/inspect` (multer in-memory storage, `.csv` only, size limit, per-request temp dir
-  removed afterwards). Returns the generated Go model.
-- Upload component with a copyable model preview.
+- `POST /api/inspect`:
+  - multer disk upload into a per-request temp dir, removed when the response closes
+  - 50 MiB limit, basename-only `.csv` names
+  - returns the parsed models plus `models.go`
+  - CLI rejections return 422 with gormcsv's message
+- Import page: file chooser, progress, error alert, focus moved to the results.
+  `ModelFieldsTable` (`mat-table`) and a copyable `CodePanel`.
 
 ### Phase 3: Model workspace
 
