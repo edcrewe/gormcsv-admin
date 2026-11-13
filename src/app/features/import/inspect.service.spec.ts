@@ -9,6 +9,7 @@ const RESULT: InspectResult = {
   file: 'TestTypes.csv',
   models: [{ name: 'TestTypes', key: 'testtypes', fields: [{ name: 'Wordcol', type: 'string' }] }],
   source: 'type TestTypes struct {}',
+  warnings: [],
 };
 
 describe('InspectService', () => {

@@ -6,7 +6,7 @@ import express from 'express';
 import request from 'supertest';
 import { createApiRouter } from './api-router';
 import { GormcsvError, GormcsvRunner } from './gormcsv-runner';
-import { safeCsvName } from './inspect';
+import { cliWarnings, safeCsvName } from './inspect';
 
 const FIXTURE = 'fixtures/TestTypes.csv';
 const GOLDEN = 'fixtures/inspect-golden.models.go';
@@ -60,6 +60,7 @@ describe('POST /api/inspect', () => {
       'TestTypes',
     ]);
     expect(res.body.source).toBe(await readFile(GOLDEN, 'utf8'));
+    expect(res.body.warnings).toEqual([]);
 
     const [{ args, csv }] = seen;
     expect(args[0]).toBe('inspectcsv');
@@ -68,6 +69,24 @@ describe('POST /api/inspect', () => {
     expect(dirname(dirname(argValue(args, '--files')))).toBe(tempRoot);
     expect(csv).toBe(await readFile(FIXTURE, 'utf8'));
     await expectTempRootEmpty();
+  });
+
+  it('returns CLI warnings with the temp path replaced by the filename', async () => {
+    const runner = vi.fn<GormcsvRunner>(async (args) => {
+      const path = argValue(args, '--files');
+      await writeFile(argValue(args, '--output'), await readFile(GOLDEN, 'utf8'));
+      return {
+        stdout: 'generated models.go\n',
+        stderr: `warning: ${path}: skipped 1 row with the wrong number of fields (line 148)\n`,
+      };
+    });
+
+    const res = await request(appWith(runner)).post('/api/inspect').attach('file', FIXTURE);
+
+    expect(res.status).toBe(200);
+    expect(res.body.warnings).toEqual([
+      'TestTypes.csv: skipped 1 row with the wrong number of fields (line 148)',
+    ]);
   });
 
   it('reduces a path-traversal filename to its basename inside the temp dir', async () => {
@@ -161,6 +180,19 @@ describe('POST /api/inspect', () => {
     expect(res.status).toBe(500);
     expect(res.body.details).toMatch(/ENOENT/);
     await expectTempRootEmpty();
+  });
+});
+
+describe('cliWarnings', () => {
+  it('keeps only "warning:" lines, without the prefix', () => {
+    const stderr =
+      'warning: a.csv: skipped 1 row (line 3)\nnoise\n\nwarning: b.csv: skipped 2 rows\n';
+
+    expect(cliWarnings(stderr)).toEqual(['a.csv: skipped 1 row (line 3)', 'b.csv: skipped 2 rows']);
+  });
+
+  it('returns nothing for empty stderr', () => {
+    expect(cliWarnings('')).toEqual([]);
   });
 });
 

@@ -56,10 +56,19 @@ Run `npm test -- --watch=false` for a single pass instead of watch mode. API tes
 `gormcsv` runner, so they don't need the binary installed. Integration tests are skipped unless
 `GORMCSV_IT=1` is set, which `test:server:it` does.
 
+The integration tests expect a `gormcsv` that skips ragged rows during inspect (gormcsv branch
+`inspect-skip-ragged-rows`, unreleased). Until that is installed, point at a local build:
+
+```bash
+(cd ~/projects/gormcsv && go build -o /tmp/gormcsv-dev .)
+GORMCSV_BIN=/tmp/gormcsv-dev npm run test:server:it
+```
+
 `fixtures/` holds test data:
 
 - `TestTypes.csv` and `Country.csv`, copied from gormcsv's `static/fixtures`. `Country.csv` has a
-  deliberately short row on line 148, which `inspectcsv` rejects.
+  deliberately short row on line 148, which `inspectcsv` skips with a warning.
+- `BadQuotes.csv`, an unbalanced quote, which `inspectcsv` still rejects (422).
 - `inspect-golden.models.go`, real `inspectcsv` output used to test the Go model parser.
 
 Before committing:

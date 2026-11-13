@@ -32,6 +32,7 @@ describe.skipIf(!process.env['GORMCSV_IT'])('POST /api/inspect with the real gor
       },
     ]);
     expect(res.body.source).toContain('"testtypes": func() any { return &TestTypes{} }');
+    expect(res.body.warnings).toEqual([]);
   });
 
   it('derives the model name from the uploaded filename', async () => {
@@ -43,14 +44,27 @@ describe.skipIf(!process.env['GORMCSV_IT'])('POST /api/inspect with the real gor
     expect(res.body.models[0]).toMatchObject({ name: 'OrderItem', key: 'order-item' });
   });
 
-  // Country.csv has a deliberately short row (line 148). importcsv skips it; inspectcsv rejects the file.
-  it('returns 422 for the malformed Country fixture', async () => {
+  // Country.csv has a deliberately short row (line 148). Needs gormcsv with ragged-row skipping
+  // (branch inspect-skip-ragged-rows); older binaries reject the whole file.
+  it('generates the Country model and warns about the skipped short row', async () => {
     const res = await request(app).post('/api/inspect').attach('file', 'fixtures/Country.csv');
+
+    expect(res.status).toBe(200);
+    expect(res.body.models[0]).toMatchObject({ name: 'Country', key: 'country' });
+    expect(res.body.models[0].fields[0]).toEqual({ name: 'Name', type: 'string' });
+    expect(res.body.warnings).toEqual([
+      'Country.csv: skipped 1 row with the wrong number of fields (line 148)',
+    ]);
+  });
+
+  it('returns 422 for a CSV with unbalanced quotes', async () => {
+    const res = await request(app).post('/api/inspect').attach('file', 'fixtures/BadQuotes.csv');
 
     expect(res.status).toBe(422);
     expect(res.body).toEqual({
       ok: false,
-      error: 'inspect "Country.csv": record on line 148: wrong number of fields',
+      error:
+        'inspect "BadQuotes.csv": parse error on line 3, column 7: extraneous or missing " in quoted-field',
     });
   });
 });

@@ -10,8 +10,9 @@ also an Angular learning exercise, so features are added one step at a time. Eac
 
 ## Status (2026-11-13)
 
-Phases 0 to 2 are done: 39 Angular specs and 33 API tests pass (36 including the real-CLI
-integration tests), and the build passes.
+Phases 0 to 2 are done: 41 Angular specs and 36 API tests pass (40 including the real-CLI
+integration tests), and the build passes. Inspect warnings, such as skipped ragged rows, are shown
+with the model.
 
 **Next: Phase 3, model workspace.** Intended shape:
 
@@ -27,8 +28,11 @@ integration tests), and the build passes.
 
 Notes for picking up:
 
-- gormcsv: `inspectcsv` fails the whole file on a ragged row, while `importcsv` skips the row.
-  This is a gormcsv inconsistency, not an admin bug.
+- gormcsv branch `inspect-skip-ragged-rows` (commit a6866f6, PR kept open by Ed until this work
+  is finished):
+  - makes `inspectcsv` skip ragged rows and warn on stderr, like `importcsv`
+  - is needed by the admin's integration tests (`GORMCSV_BIN=<local build>`)
+  - add further gormcsv fixes found during this work to that branch
 - Initial bundle is about 481 kB against a 500 kB warning budget. Material button code is
   shared, so it now loads with `main`.
 - VS Code: if test globals go missing, run "TypeScript: Restart TS Server". All three tsconfigs
