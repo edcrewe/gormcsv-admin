@@ -1,0 +1,83 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Format, unit tests and build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Match the packageManager field in package.json, which generated package-lock.json.
+      - name: Install npm
+        run: npm install --global npm@12.2.2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npx prettier --check .
+
+      - name: Angular specs
+        run: npm test -- --watch=false
+
+      - name: API tests
+        run: npm run test:server
+
+      - name: Build
+        run: npm run build
+
+  integration:
+    name: API tests against the real gormcsv
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      # Full history and tags so `make build` can stamp the git-describe version the health check expects.
+      - name: Check out gormcsv
+        uses: actions/checkout@v7
+        with:
+          repository: edcrewe/gormcsv
+          ref: master
+          path: gormcsv-src
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: gormcsv-src/go.mod
+          cache-dependency-path: gormcsv-src/go.sum
+
+      - name: Build gormcsv
+        run: make -C gormcsv-src build && gormcsv-src/gormcsv version
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install npm
+        run: npm install --global npm@12.2.2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: API tests including real-CLI integration tests
+        env:
+          GORMCSV_BIN: ${{ github.workspace }}/gormcsv-src/gormcsv
+        run: npm run test:server:it
