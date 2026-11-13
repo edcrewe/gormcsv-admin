@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { createApiRouter } from './api-router';
-import { GormcsvRunner } from './gormcsv-runner';
+import { GormcsvError, GormcsvRunner } from './gormcsv-runner';
 
 function appWith(runner: GormcsvRunner) {
   const app = express();
@@ -10,17 +10,16 @@ function appWith(runner: GormcsvRunner) {
 }
 
 describe('GET /api/health', () => {
-  it('reports ok with the first help line when the CLI runs', async () => {
-    const runner = vi.fn<GormcsvRunner>().mockResolvedValue({
-      stdout: 'Generate GORM models from CSV files\n\nUsage:\n  gormcsv [command]\n',
-      stderr: '',
-    });
+  it('reports ok with the version from `gormcsv version`', async () => {
+    const runner = vi
+      .fn<GormcsvRunner>()
+      .mockResolvedValue({ stdout: 'gormcsv v0.3.1-3-g4446d92\n', stderr: '' });
 
     const res = await request(appWith(runner)).get('/api/health');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ ok: true, summary: 'Generate GORM models from CSV files' });
-    expect(runner).toHaveBeenCalledWith(['--help']);
+    expect(res.body).toEqual({ ok: true, version: 'v0.3.1-3-g4446d92' });
+    expect(runner).toHaveBeenCalledWith(['version']);
   });
 
   it('returns 503 with details when the CLI is missing', async () => {
@@ -31,8 +30,25 @@ describe('GET /api/health', () => {
     expect(res.status).toBe(503);
     expect(res.body).toEqual({
       ok: false,
-      error: 'gormcsv CLI not available',
+      error: 'gormcsv CLI not available or too old',
       details: 'spawn gormcsv ENOENT',
+    });
+  });
+
+  it('returns 503 with the CLI message for a binary that predates the version command', async () => {
+    const stderr =
+      'Error: unknown command "version" for "gormcsv"\nRun \'gormcsv --help\' for usage.\n';
+    const runner = vi
+      .fn<GormcsvRunner>()
+      .mockRejectedValue(new GormcsvError('Command failed: gormcsv version', stderr, 1));
+
+    const res = await request(appWith(runner)).get('/api/health');
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'gormcsv CLI not available or too old',
+      details: 'unknown command "version" for "gormcsv"',
     });
   });
 

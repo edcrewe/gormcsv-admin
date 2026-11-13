@@ -24,9 +24,9 @@ describe('CliStatusService', () => {
 
   it('is ready after a successful health check', () => {
     service.check();
-    httpTesting.expectOne('/api/health').flush({ ok: true, summary: 'Generate GORM models' });
+    httpTesting.expectOne('/api/health').flush({ ok: true, version: 'v0.3.1-3-g4446d92' });
 
-    expect(service.status()).toEqual({ ok: true, summary: 'Generate GORM models' });
+    expect(service.status()).toEqual({ ok: true, version: 'v0.3.1-3-g4446d92' });
     expect(service.ready()).toBe(true);
   });
 

@@ -11,6 +11,14 @@ describe.skipIf(!process.env['GORMCSV_IT'])('POST /api/inspect with the real gor
     createApiRouter({ runner: createExecRunner({ binary: process.env['GORMCSV_BIN'] }) }),
   );
 
+  it('reports a git-describe style version from GET /api/health', async () => {
+    const res = await request(app).get('/api/health');
+
+    expect(res.status).toBe(200);
+    // v0.3.1 on a tag, v0.3.1-3-g4446d92 after one, optionally -dirty.
+    expect(res.body.version).toMatch(/^v\d+\.\d+\.\d+(-\d+-g[0-9a-f]{7,})?(-dirty)?$/);
+  });
+
   it('generates the TestTypes model from the gormcsv fixture', async () => {
     const res = await request(app).post('/api/inspect').attach('file', 'fixtures/TestTypes.csv');
 

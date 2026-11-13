@@ -31,29 +31,34 @@ describe('CliStatusBadge', () => {
     expect(status()?.textContent).toContain('Checking CLI');
   });
 
-  it('shows ready with the CLI summary as a tooltip', async () => {
+  it('shows ready with the gormcsv version', async () => {
     const { fixture, status } = await render();
 
-    httpTesting.expectOne('/api/health').flush({ ok: true, summary: 'Generate GORM models' });
+    httpTesting.expectOne('/api/health').flush({ ok: true, version: 'v0.3.1-3-g4446d92' });
     await fixture.whenStable();
 
     const badge = status()?.querySelector('.badge');
     expect(badge?.classList).toContain('ok');
-    expect(badge?.textContent).toContain('CLI ready');
-    expect(badge?.getAttribute('title')).toBe('Generate GORM models');
+    expect(badge?.textContent).toContain('gormcsv v0.3.1-3-g4446d92');
   });
 
-  it('shows the error message when the CLI is unavailable', async () => {
+  it('shows the error with its details as a tooltip when the CLI is unusable', async () => {
     const { fixture, status } = await render();
 
-    httpTesting
-      .expectOne('/api/health')
-      .flush({ ok: false, error: 'gormcsv CLI not available' }, { status: 503, statusText: '' });
+    httpTesting.expectOne('/api/health').flush(
+      {
+        ok: false,
+        error: 'gormcsv CLI not available or too old',
+        details: 'unknown command "version" for "gormcsv"',
+      },
+      { status: 503, statusText: '' },
+    );
     await fixture.whenStable();
 
     const badge = status()?.querySelector('.badge');
     expect(badge?.classList).toContain('error');
-    expect(badge?.textContent).toContain('gormcsv CLI not available');
+    expect(badge?.textContent).toContain('gormcsv CLI not available or too old');
+    expect(badge?.getAttribute('title')).toBe('unknown command "version" for "gormcsv"');
   });
 
   it('is a polite live region with decorative icons hidden, and passes AXE', async () => {

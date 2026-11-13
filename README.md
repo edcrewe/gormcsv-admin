@@ -11,8 +11,8 @@ for coding conventions.
 ## Prerequisites
 
 - Node.js 22+ and npm
-- `gormcsv` on your `PATH`, or set `GORMCSV_BIN=/path/to/gormcsv`. Without it the UI loads but
-  shows "gormcsv CLI not available".
+- `gormcsv` on your `PATH` (master after v0.3.1), or set `GORMCSV_BIN=/path/to/gormcsv`.
+  Without it, or with an older build, the UI loads but shows "gormcsv CLI not available or too old".
 
 ```bash
 npm install
@@ -56,12 +56,12 @@ Run `npm test -- --watch=false` for a single pass instead of watch mode. API tes
 `gormcsv` runner, so they don't need the binary installed. Integration tests are skipped unless
 `GORMCSV_IT=1` is set, which `test:server:it` does.
 
-The integration tests expect a `gormcsv` that skips ragged rows during inspect (gormcsv branch
-`inspect-skip-ragged-rows`, unreleased). Until that is installed, point at a local build:
+The integration tests, and the admin's health check, need a `gormcsv` built from master after
+v0.3.1. That build has the `version` command and skips ragged rows when inspecting. To test
+another build:
 
 ```bash
-(cd ~/projects/gormcsv && go build -o /tmp/gormcsv-dev .)
-GORMCSV_BIN=/tmp/gormcsv-dev npm run test:server:it
+GORMCSV_BIN=/path/to/gormcsv npm run test:server:it
 ```
 
 `fixtures/` holds test data:
