@@ -1,0 +1,57 @@
+<h2>Import CSV</h2>
+<p>
+  Upload a CSV to see the GORM model gormcsv infers from it. The filename sets the model name, and
+  each header becomes a field.
+</p>
+
+<section class="upload" aria-labelledby="upload-heading">
+  <h3 id="upload-heading">1. Inspect a CSV</h3>
+
+  <!-- The native input is display:none; the Material button below is the accessible control for it. -->
+  <input
+    #fileInput
+    class="file-input"
+    type="file"
+    accept=".csv,text/csv"
+    (change)="onFileChange(fileInput)"
+  />
+  <div class="actions">
+    <button matButton="outlined" type="button" [disabled]="loading()" (click)="fileInput.click()">
+      <mat-icon aria-hidden="true">attach_file</mat-icon>
+      Choose CSV file
+    </button>
+    <span class="file-name" aria-live="polite">
+      @if (file(); as f) {
+        Selected: <strong>{{ f.name }}</strong>
+      } @else {
+        No file selected
+      }
+    </span>
+    <button matButton="filled" type="button" [disabled]="!canInspect()" (click)="inspect()">
+      Inspect
+    </button>
+  </div>
+
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Inspecting CSV" />
+  }
+</section>
+
+@if (errorMessage(); as message) {
+  <div class="error" role="alert">
+    <mat-icon aria-hidden="true">error</mat-icon>
+    {{ message }}
+  </div>
+}
+
+@if (result(); as result) {
+  <section class="results" aria-labelledby="results-heading">
+    <h3 id="results-heading" #resultsHeading tabindex="-1">
+      Generated model from {{ result.file }}
+    </h3>
+    @for (model of result.models; track model.name) {
+      <app-model-fields-table [model]="model" />
+    }
+    <app-code-panel [code]="result.source" label="models.go" />
+  </section>
+}

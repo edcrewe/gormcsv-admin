@@ -1,11 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Service, computed, inject, signal } from '@angular/core';
-
-export interface HealthStatus {
-  ok: boolean;
-  summary?: string;
-  error?: string;
-}
+import { HealthStatus, isApiError } from '../../shared/api-types';
 
 /** Holds the result of GET /api/health so any component can show whether the gormcsv CLI is usable. */
 @Service()
@@ -27,8 +22,8 @@ export class CliStatusService {
 
 function toHealthStatus(err: HttpErrorResponse): HealthStatus {
   const body: unknown = err.error;
-  if (typeof body === 'object' && body !== null && 'ok' in body) {
-    return body as HealthStatus;
+  if (isApiError(body)) {
+    return body;
   }
   return { ok: false, error: 'Server unreachable' };
 }

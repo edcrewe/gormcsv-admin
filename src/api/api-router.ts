@@ -1,18 +1,14 @@
 import { Router } from 'express';
+import type { HealthStatus } from '../shared/api-types';
 import { GormcsvRunner, errorMessage } from './gormcsv-runner';
-
-export interface HealthStatus {
-  ok: boolean;
-  summary?: string;
-  error?: string;
-  details?: string;
-}
+import { InspectDeps, createInspectRouter } from './inspect';
 
 export interface ApiDeps {
   runner: GormcsvRunner;
+  inspect?: Omit<InspectDeps, 'runner'>;
 }
 
-export function createApiRouter({ runner }: ApiDeps): Router {
+export function createApiRouter({ runner, inspect = {} }: ApiDeps): Router {
   const router = Router();
 
   // gormcsv has no --version flag, so --help proves the binary runs and its first line identifies it.
@@ -30,6 +26,8 @@ export function createApiRouter({ runner }: ApiDeps): Router {
       res.status(503).json(body);
     }
   });
+
+  router.use('/inspect', createInspectRouter({ runner, ...inspect }));
 
   // Unknown API paths must not fall through to the Angular renderer.
   router.use((_req, res) => {
