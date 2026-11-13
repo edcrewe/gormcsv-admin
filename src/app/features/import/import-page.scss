@@ -25,6 +25,26 @@
   color: var(--mat-sys-on-error-container);
 }
 
+.warnings {
+  margin: 12px 0 16px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+
+  h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+    font: var(--mat-sys-title-small);
+  }
+  ul {
+    margin: 4px 0;
+    padding-left: 32px;
+  }
+}
+
 .results {
   margin-top: 24px;
 

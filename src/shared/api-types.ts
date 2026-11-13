@@ -37,6 +37,8 @@ export interface InspectResult {
   models: GoModel[];
   /** The generated models.go, for preview and copy. */
   source: string;
+  /** Non-fatal CLI warnings, e.g. rows skipped for having the wrong number of fields. */
+  warnings: string[];
 }
 
 export function isApiError(value: unknown): value is ApiError {

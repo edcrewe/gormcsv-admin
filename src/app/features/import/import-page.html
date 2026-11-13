@@ -49,6 +49,19 @@
     <h3 id="results-heading" #resultsHeading tabindex="-1">
       Generated model from {{ result.file }}
     </h3>
+    @if (result.warnings.length) {
+      <div class="warnings">
+        <h4>
+          <mat-icon aria-hidden="true">warning</mat-icon>
+          {{ result.warnings.length === 1 ? 'Warning' : result.warnings.length + ' warnings' }}
+        </h4>
+        <ul>
+          @for (warning of result.warnings; track $index) {
+            <li>{{ warning }}</li>
+          }
+        </ul>
+      </div>
+    }
     @for (model of result.models; track model.name) {
       <app-model-fields-table [model]="model" />
     }

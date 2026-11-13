@@ -72,12 +72,13 @@ export function createInspectRouter({
     }
     const output = join(req.inspectDir, 'models.go');
     try {
-      await runner(['inspectcsv', '--files', file.path, '--output', output]);
+      const { stderr } = await runner(['inspectcsv', '--files', file.path, '--output', output]);
       const source = await readFile(output, 'utf8');
       const result: InspectResult = {
         file: file.filename,
         models: parseGeneratedModels(source),
         source,
+        warnings: cliWarnings(stderr).map((w) => w.replaceAll(file.path, file.filename)),
       };
       res.json(result);
     } catch (err: unknown) {
@@ -92,6 +93,14 @@ export function createInspectRouter({
   });
 
   return router;
+}
+
+/** gormcsv reports non-fatal problems, such as skipped ragged rows, as "warning: ..." lines on stderr. */
+export function cliWarnings(stderr: string): string[] {
+  return stderr
+    .split('\n')
+    .filter((line) => line.startsWith('warning: '))
+    .map((line) => line.slice('warning: '.length).trim());
 }
 
 function sendUploadError(res: Response, err: unknown): void {
