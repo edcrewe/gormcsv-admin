@@ -34,6 +34,9 @@ Notes for picking up:
 - Workspace: a detached worktree at `~/.local/share/gormcsv-admin/gormcsv-src`, with `csv/` and
   `bin/` beside it. The built binary's `models.go` is copied to `bin/models.go`, so the Models
   page stays right even if the worktree is updated.
+- The local workspace currently has `TestTypes.csv` and `Country.csv` registered and built
+  (`v0.3.1-4-g5ad9de4-dirty`), ready for Phase 4. To reset it, remove `csv/` and `bin/`, then run
+  `git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout -- importcsv/models.go`.
 - VS Code: if test globals go missing, run "TypeScript: Restart TS Server". All three tsconfigs
   are referenced from `tsconfig.json`.
 - Stop a background server by PID, not `pkill -f`, which can match the calling shell.
