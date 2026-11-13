@@ -351,12 +351,19 @@ describe('ModelWorkspace concurrency', () => {
     const tools = fakeTools({ buildDelayMs: 30 });
     const workspace = workspaceWith(tools);
 
-    const results = await Promise.all(
-      ['a.csv', 'b.csv', 'c.csv'].map(async (name) => workspace.register(await upload(name), name)),
-    );
+    const names = ['a.csv', 'b.csv', 'c.csv'];
+    const paths = await Promise.all(names.map((name) => upload(name)));
+
+    // Queued in order without awaiting, so all three are pending at once.
+    const results = await Promise.all(names.map((name, i) => workspace.register(paths[i], name)));
 
     expect(tools.stats()).toEqual({ builds: 3, maxConcurrentBuilds: 1 });
-    expect(results.at(-1)!.status.files).toEqual(['a.csv', 'b.csv', 'c.csv']);
+    // First in, first out: each registration sees the ones queued before it.
+    expect(results.map((r) => r.status.files)).toEqual([
+      ['a.csv'],
+      ['a.csv', 'b.csv'],
+      ['a.csv', 'b.csv', 'c.csv'],
+    ]);
   });
 
   it('keeps serving later registrations after one fails', async () => {
