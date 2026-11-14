@@ -1,6 +1,9 @@
 /**
- * JSON shapes exchanged between the Express API (src/api) and the Angular app (src/app).
- * Types only, so it is safe to import from both sides.
+ * JSON shapes exchanged between the Express API (src/api) and the Angular app (src/app). Both sides
+ * import these types, so changing a response shape gives a compile error wherever it is used rather
+ * than a surprise at runtime. The file holds types only, plus the isApiError type guard, which
+ * narrows an unknown error body to ApiError at runtime. Nothing here pulls server code into the
+ * browser bundle, or browser code into the server.
  */
 
 export interface ApiError {

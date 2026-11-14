@@ -1,3 +1,11 @@
+/**
+ * Models page: what the workspace gormcsv can import. The data comes from httpResource, Angular's
+ * signal-based way to fetch data. It sends the GET when the component is created and exposes
+ * value(), isLoading(), error() and hasValue() as signals. The template just reads those signals,
+ * so there is no subscribe or unsubscribe to manage, and reload() fetches again. This route renders
+ * in the browser only (see app.routes.server.ts), because the data cannot be fetched at build time.
+ */
+
 import { Component, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse, httpResource } from '@angular/common/http';

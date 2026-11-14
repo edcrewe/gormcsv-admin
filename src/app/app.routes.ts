@@ -1,6 +1,13 @@
+/**
+ * Client-side routes. Each feature page uses loadComponent with a dynamic import(), so the bundler
+ * puts it in its own chunk, which is only downloaded the first time that route is visited. That
+ * keeps the initial bundle small. The title property sets the browser tab title on each navigation,
+ * which also tells screen reader users where they are. Unknown paths fall through to the not-found
+ * page.
+ */
+
 import { Routes } from '@angular/router';
 
-/** Feature pages are lazy-loaded so each section's code is only fetched when first visited. */
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'import' },
   {

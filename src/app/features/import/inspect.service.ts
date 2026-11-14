@@ -1,3 +1,10 @@
+/**
+ * Sends a CSV to POST /api/inspect as multipart form data. HttpClient returns a cold Observable:
+ * nothing is sent until a component subscribes, and unsubscribing cancels the request. The
+ * catchError operator turns HTTP failures into an Error with a readable message, using the API's
+ * JSON error body when there is one, so components only ever deal with message text.
+ */
+
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';

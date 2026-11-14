@@ -1,3 +1,22 @@
+/**
+ * Why the binary is rebuilt: gormcsv can only import models compiled into its binary, because the
+ * generated importcsv/models.go (MakeModels) is its model registry. Django is similar: a model must
+ * exist in code before `migrate`. So registering a CSV copies it into csv/, regenerates models.go
+ * from every registered CSV in a dedicated gormcsv checkout, and runs `go build` to produce a new
+ * bin/gormcsv that can import all of them. The new binary is built alongside the old one and only
+ * swapped in if the build succeeds. If anything fails, the previous CSVs and models.go are
+ * restored, so the workspace always matches its last good binary.
+ *
+ * How the async parts work: this file runs on the Node server, not in Angular, so it uses plain
+ * Promises and async/await rather than Angular's Observables or signals. Each step (copy,
+ * inspectcsv, git describe, go build) awaits a child process without blocking Node's event loop, so
+ * the server keeps handling other requests during a long build. Registrations must not overlap,
+ * because they share one models.go, so exclusive() chains each task onto the previous task's
+ * promise. That forms a first-in, first-out queue that works as a lightweight lock. On the client,
+ * RegisterModel subscribes to an HttpClient Observable for the long POST, and ModelsPage reads the
+ * result through httpResource signals.
+ */
+
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { RegisterResult, WorkspaceBinary, WorkspaceStatus } from '../shared/api-types';
@@ -37,12 +56,7 @@ const VERSION_FLAG = 'github.com/edcrewe/gormcsv/cmd.Version';
 const INSPECT_TIMEOUT_MS = 120_000;
 const DETAILS_LINES = 40;
 
-/**
- * The admin's model registry. Registered CSVs live in csv/; registering regenerates
- * importcsv/models.go in the gormcsv checkout from all of them and rebuilds bin/gormcsv, so
- * the binary can import every registered model. Registrations run one at a time, and a failed
- * one restores the previous CSVs and models.go, keeping them in step with the last good binary.
- */
+/** The admin's model registry: registered CSVs plus the gormcsv binary built from them. */
 export class ModelWorkspace {
   readonly csvDir: string;
   readonly binPath: string;

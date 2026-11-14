@@ -1,3 +1,14 @@
+/**
+ * Import CSV page, step 1 of the import flow: choose a CSV, inspect it, and preview the generated
+ * model, warnings and models.go. Step 2, registering, is the RegisterModel child component. The
+ * page's state is one signal holding a discriminated union: idle, loading, done or error.
+ * computed() signals narrow it for the template, so impossible combinations, such as a result and
+ * an error at the same time, cannot happen. InspectService returns an Observable, and subscribe()
+ * starts the upload. When the result arrives, afterNextRender waits until Angular has rendered it,
+ * then moves focus to the results heading so keyboard and screen reader users land on the new
+ * content.
+ */
+
 import {
   Component,
   ElementRef,

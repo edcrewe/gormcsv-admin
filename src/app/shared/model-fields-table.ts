@@ -1,3 +1,10 @@
+/**
+ * Shows one model's fields and Go types in an Angular Material mat-table; used on the Import and
+ * Models pages. model is a required signal input, and when it changes the table re-renders from
+ * model().fields. The caption names the model and its factory key, and the header cells have
+ * scope="col", so screen readers can relate each cell to its column.
+ */
+
 import { Component, input } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { GoModel } from '../../shared/api-types';

@@ -1,3 +1,13 @@
+/**
+ * Parses the models.go that `gormcsv inspectcsv` generates into plain JSON: model name, factory
+ * key, and each field with its Go type. That lets the UI show the inferred schema as a table rather
+ * than only as raw source. It is a few regular expressions matched against gormcsv's gofmt'd
+ * template output, not a Go parser, which is enough because the input always comes from that
+ * template. fixtures/inspect-golden.models.go pins the real format in the tests. The factory key
+ * matters later: importcsv picks the model for a CSV by matching this key against the CSV's
+ * filename.
+ */
+
 import type { GoModel, ModelField } from '../shared/api-types';
 
 // Matches gofmt'd output of gormcsv's models.tmpl only; not a general Go parser.

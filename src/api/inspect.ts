@@ -1,3 +1,13 @@
+/**
+ * POST /api/inspect: shows the GORM model gormcsv would generate for an uploaded CSV, without
+ * storing or changing anything. This is step 1 of the import flow. The csvUpload middleware has
+ * already written the file to a per-request temp dir. This handler runs `inspectcsv` on it with its
+ * output in the same dir, reads back models.go, parses it, and returns the models, the source and
+ * any warnings. gormcsv prints non-fatal problems, such as skipped ragged rows, as "warning:" lines
+ * on stderr. Temp paths are replaced by the filename in messages, since they mean nothing to the
+ * user. The temp dir is removed when the response closes.
+ */
+
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Request, Response, Router } from 'express';

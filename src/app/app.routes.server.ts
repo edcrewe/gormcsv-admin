@@ -1,3 +1,10 @@
+/**
+ * How each route is rendered by the server. Prerender produces static HTML at build time, for pages
+ * that need no live data: Import and the placeholder pages. Models uses Client rendering, because
+ * it shows live /api data that does not exist at build time. Unknown paths use Server rendering on
+ * request, so the not-found page can return a real 404 status.
+ */
+
 import { RenderMode, ServerRoute } from '@angular/ssr';
 
 export const serverRoutes: ServerRoute[] = [

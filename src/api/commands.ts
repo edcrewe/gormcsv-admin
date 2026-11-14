@@ -1,3 +1,13 @@
+/**
+ * Runs external programs (gormcsv, git and go) for the API. It uses execFile rather than exec, so
+ * arguments go straight to the program with no shell and an uploaded filename cannot inject shell
+ * syntax. Node's callback-style execFile is wrapped with util.promisify so callers can `await` it.
+ * A non-zero exit, a timeout or a missing binary rejects the promise, and that is converted into a
+ * CommandError carrying stderr, the exit code and whether it timed out. That lets routes tell "the
+ * CLI rejected this CSV" apart from "the CLI is broken". The CommandRunner and GormcsvRunner
+ * function types are the seam that tests replace with fakes.
+ */
+
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 

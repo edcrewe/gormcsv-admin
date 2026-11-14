@@ -1,3 +1,13 @@
+/**
+ * Step 2 of the import flow: registers the inspected CSV as a model, which rebuilds the workspace
+ * gormcsv on the server (src/api/workspace.ts explains why). On a cold build the request can take
+ * minutes. The component therefore tracks a state signal (idle, registering, done or error), shows
+ * a progress bar while the ModelsService Observable is pending, and disables the button so a second
+ * build cannot be queued. file and modelName are signal inputs set by the import page. The page
+ * destroys and re-creates this component when a new file is chosen, which resets its state with no
+ * extra code.
+ */
+
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';

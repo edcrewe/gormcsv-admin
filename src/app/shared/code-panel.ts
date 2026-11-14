@@ -1,3 +1,11 @@
+/**
+ * Reusable read-only code block with a copy button, used for the generated models.go. code and
+ * label are signal inputs (input.required() and input()), which the template reads like any other
+ * signal. Copying uses the CDK cdkCopyToClipboard directive. Its copied event sets a signal that is
+ * shown in a polite live region, so screen readers announce "Copied". The pre element is focusable,
+ * so keyboard users can scroll long code.
+ */
+
 import { Component, input, signal } from '@angular/core';
 import { CdkCopyToClipboard } from '@angular/cdk/clipboard';
 import { MatButtonModule } from '@angular/material/button';

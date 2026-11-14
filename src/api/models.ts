@@ -1,3 +1,12 @@
+/**
+ * /api/models is the HTTP side of the model workspace. GET returns what the workspace gormcsv can
+ * import. POST registers an uploaded CSV as a model, which regenerates models.go and rebuilds
+ * gormcsv (workspace.ts explains why). A cold build can take minutes, so the POST simply stays open
+ * until the workspace's promise settles, while the Angular client shows a progress bar.
+ * WorkspaceError kinds map to status codes: 503 when the gormcsv checkout is missing, 422 when
+ * gormcsv rejects the CSV, and 500 with the build output when go build fails.
+ */
+
 import { Request, Response, Router } from 'express';
 import { errorMessage } from './commands';
 import { CsvUploadRequest, UploadOptions, csvUpload } from './upload';

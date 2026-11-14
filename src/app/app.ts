@@ -1,3 +1,12 @@
+/**
+ * The admin shell: a Material toolbar with the CLI status badge, a sidenav with the section links,
+ * and a router outlet for the current page. Its only state is whether the nav is open, held in a
+ * signal. toggleNav() changes it with update(), and because the template reads navOpen(), Angular
+ * re-renders just the parts that depend on it. RouterLinkActive with ariaCurrentWhenActive marks
+ * the current page's link for assistive technology. NAV_ITEMS is exported so tests can check that
+ * every section is linked.
+ */
+
 import { Component, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';

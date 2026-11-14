@@ -1,3 +1,10 @@
+/**
+ * Registers a CSV with POST /api/models. Like InspectService, it returns an HttpClient Observable
+ * and maps failures with catchError. Here they become a RegisterError, which also carries details
+ * (the tail of the go build output), so the UI can show why a build failed. Writes like this use
+ * HttpClient directly, because httpResource is meant for reads that follow signals.
+ */
+
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';

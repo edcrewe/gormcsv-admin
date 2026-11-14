@@ -1,3 +1,13 @@
+/**
+ * API entry point: builds the Express router that server.ts mounts at /api, and wires the health,
+ * inspect and models routes to their dependencies. The gormcsv runner, the model workspace and
+ * upload limits are passed in rather than imported, so tests can build the same router with fakes
+ * and drive it over HTTP with supertest. GET /health runs `gormcsv version`; a binary without that
+ * command also lacks ragged-row skipping, so it is reported as unusable. Handlers are async
+ * functions, and each catches its own errors to return JSON with a deliberate status code. The
+ * final 404 handler stops unknown /api paths from falling through to the Angular page renderer.
+ */
+
 import { Router } from 'express';
 import type { HealthStatus } from '../shared/api-types';
 import { CommandError, GormcsvRunner, errorMessage } from './commands';

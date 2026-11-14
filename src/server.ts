@@ -1,3 +1,13 @@
+/**
+ * Node entry point, used both by the dev server (ng serve, through reqHandler) and in production
+ * (node dist/gormcsv-admin/server/server.mjs). It mounts /api first, then the static browser files,
+ * then the Angular SSR engine for every other path, so API requests are never rendered as pages.
+ * Settings come from environment variables (PORT, HOST, GORMCSV_BIN, GORMCSV_WORKSPACE,
+ * GORMCSV_SRC, GO_BIN). The command runner and ModelWorkspace are created once here and passed into
+ * the router, so the whole app shares one workspace and one build queue. It binds to 127.0.0.1 by
+ * default, because the API runs local commands and builds.
+ */
+
 import {
   AngularNodeAppEngine,
   createNodeRequestHandler,

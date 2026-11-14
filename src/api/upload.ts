@@ -1,3 +1,13 @@
+/**
+ * Shared Express middleware that receives one CSV upload, used by the inspect and models routes.
+ * multer streams the multipart body to disk in a fresh mkdtemp dir per request. Large CSVs are
+ * therefore never held in memory, and concurrent uploads cannot collide. Filenames are reduced to a
+ * basename and must look like a plain .csv name, because gormcsv derives model and table names from
+ * them. The temp dir is removed on the response's 'close' event, which fires however the request
+ * ends, including when multer rejects an oversize file part-way through. Upload problems become
+ * JSON 400 or 413 responses before the route handler runs.
+ */
+
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';

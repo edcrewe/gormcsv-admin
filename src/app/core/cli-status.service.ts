@@ -1,3 +1,12 @@
+/**
+ * Holds whether the gormcsv CLI is usable, for any component to read. The state is a private
+ * writable signal exposed through asReadonly(), so only this service can change it. ready is a
+ * computed() signal derived from it, which updates automatically. check() calls GET /api/health
+ * through HttpClient. HttpClient returns an Observable, and subscribing is what sends the request;
+ * the next and error callbacks then set the signal. The API's JSON error body is kept, so the UI
+ * can show the server's own message.
+ */
+
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Service, computed, inject, signal } from '@angular/core';
 import { HealthStatus, isApiError } from '../../shared/api-types';
