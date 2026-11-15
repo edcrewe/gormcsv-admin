@@ -25,3 +25,5 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+gormcsv-admin.code-workspace
+run_oc.sh
