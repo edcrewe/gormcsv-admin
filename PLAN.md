@@ -31,7 +31,7 @@ Notes for picking up:
 - Initial bundle is about 503 kB. The warning budget was raised to 600 kB (error still 1 MB)
   because the shared Material and Angular resource code now loads with `main`.
 - Workspace: a detached worktree at `~/.local/share/gormcsv-admin/gormcsv-src`, with `csv/` and
-  `bin/` beside it. The built binary's `models.go` is copied to `bin/models.go`, so the Models
+  `bin/` beside it. The models the binary was built with are saved as `bin/models.json`, so the Models
   page stays right even if the worktree is updated.
 - The local workspace currently has `TestTypes.csv` and `Country.csv` registered and built
   (`v0.3.1-4-g5ad9de4-dirty`), and `gormcsv.db` has been populated from them. To reset it, remove `csv/` and `bin/`, then run

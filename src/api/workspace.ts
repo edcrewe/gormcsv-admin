@@ -20,6 +20,7 @@
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
+  GoModel,
   ImportRequest,
   ImportResult,
   RegisterResult,
@@ -27,9 +28,14 @@ import type {
   WorkspaceStatus,
 } from '../shared/api-types';
 import { CommandError, CommandRunner, errorMessage } from './commands';
-import { parseGeneratedModels } from './go-model';
-import { parseImportOutput, totals } from './import-output';
-import { cliWarnings } from './inspect';
+import {
+  ReportError,
+  parseImportReport,
+  parseInspectReport,
+  reportFiles,
+  reportModels,
+  reportWarnings,
+} from './gormcsv-json';
 
 export interface WorkspaceConfig {
   /** Holds csv/ (registered CSVs) and bin/ (the built gormcsv). */
@@ -71,7 +77,7 @@ const DETAILS_LINES = 40;
 export class ModelWorkspace {
   readonly csvDir: string;
   readonly binPath: string;
-  /** Copy of the models.go the binary was built from, so status survives checkout updates. */
+  /** The models the binary was built with, as JSON, so status survives checkout updates. */
   private readonly builtModels: string;
   private readonly modelsGo: string;
   readonly databasePath: string;
@@ -81,7 +87,7 @@ export class ModelWorkspace {
     this.databasePath = config.databasePath ?? join(config.dir, 'gormcsv.db');
     this.csvDir = join(config.dir, 'csv');
     this.binPath = join(config.dir, 'bin', 'gormcsv');
-    this.builtModels = join(config.dir, 'bin', 'models.go');
+    this.builtModels = join(config.dir, 'bin', 'models.json');
     this.modelsGo = join(config.srcDir, 'importcsv', 'models.go');
   }
 
@@ -108,8 +114,8 @@ export class ModelWorkspace {
       try {
         await Promise.all(replaced.map((name) => rm(join(this.csvDir, name))));
         await copyFile(csvPath, join(this.csvDir, filename));
-        const warnings = await this.generateModels();
-        await this.build();
+        const { warnings, models } = await this.generateModels();
+        await this.build(models);
         return { file: filename, warnings, status: await this.readStatus() };
       } catch (err: unknown) {
         await rm(join(this.csvDir, filename), { force: true });
@@ -141,21 +147,25 @@ export class ModelWorkspace {
         ['--dsn', this.databasePath],
         ['--batch-size', String(batchSize)],
         ['--workers', String(workers)],
+        '--json',
       ].flat();
       const hidePaths = (text: string) => text.replaceAll(`${this.csvDir}/`, '');
       const { importTimeoutMs = 1_800_000 } = this.config;
 
       try {
-        const { stdout, stderr } = await this.config.run(this.binPath, args, {
+        const { stdout } = await this.config.run(this.binPath, args, {
           timeoutMs: importTimeoutMs,
         });
-        return this.importResult(true, stdout, stderr, hidePaths);
+        return this.importResult(true, stdout, hidePaths);
       } catch (err: unknown) {
+        if (err instanceof ReportError) {
+          throw new WorkspaceError(`${err.message}; register a model to rebuild it`, 'failed');
+        }
         if (err instanceof CommandError && !err.timedOut && err.exitCode !== null) {
-          const result = this.importResult(false, err.stdout, err.stderr, hidePaths);
-          // Summary lines mean importcsv got as far as loading rows: a partial import.
-          if (result.files.length) return result;
-          throw new WorkspaceError(result.errors[0] ?? hidePaths(err.cliMessage), 'failed');
+          // importcsv prints its report before failing when it got as far as loading rows.
+          const result = err.stdout.trim() ? this.importResult(false, err.stdout, hidePaths) : null;
+          if (result?.files.length) return result;
+          throw new WorkspaceError(result?.errors[0] ?? hidePaths(err.cliMessage), 'failed');
         }
         const message =
           err instanceof CommandError && err.timedOut ? 'importcsv timed out' : 'Import failed';
@@ -167,15 +177,18 @@ export class ModelWorkspace {
   private importResult(
     complete: boolean,
     stdout: string,
-    stderr: string,
     hidePaths: (text: string) => string,
   ): ImportResult {
-    const { files, errors } = parseImportOutput(stdout, stderr);
+    const report = parseImportReport(stdout);
     return {
       complete,
-      files,
-      totals: totals(files),
-      errors: errors.map(hidePaths),
+      files: reportFiles(report),
+      totals: {
+        inserted: report.inserted,
+        duplicates: report.duplicates,
+        rejected: report.rejected,
+      },
+      errors: report.errors.map(hidePaths),
       database: this.databasePath,
     };
   }
@@ -184,8 +197,8 @@ export class ModelWorkspace {
     const problem = await this.problem();
     const files = await this.csvFiles();
     const binary = problem ? null : await this.binary();
-    const built = binary ? await readFile(this.builtModels, 'utf8').catch(() => '') : '';
-    const models = parseGeneratedModels(built);
+    const built = binary ? await readFile(this.builtModels, 'utf8').catch(() => '[]') : '[]';
+    const models = JSON.parse(built) as GoModel[];
     return problem
       ? { ready: false, problem, files, models, binary }
       : { ready: true, files, models, binary };
@@ -220,17 +233,21 @@ export class ModelWorkspace {
     return { version, builtAt: built.mtime.toISOString() };
   }
 
-  private async generateModels(): Promise<string[]> {
+  private async generateModels(): Promise<{ warnings: string[]; models: GoModel[] }> {
     const { gormcsvBin = 'gormcsv', run } = this.config;
     const hidePaths = (text: string) => text.replaceAll(`${this.csvDir}/`, '');
     try {
-      const { stderr } = await run(
+      const { stdout } = await run(
         gormcsvBin,
-        ['inspectcsv', '--files', this.csvDir, '--output', this.modelsGo],
+        ['inspectcsv', '--files', this.csvDir, '--output', this.modelsGo, '--json'],
         { timeoutMs: INSPECT_TIMEOUT_MS },
       );
-      return cliWarnings(stderr).map(hidePaths);
+      const report = parseInspectReport(stdout);
+      return { warnings: reportWarnings(report, hidePaths), models: reportModels(report) };
     } catch (err: unknown) {
+      if (err instanceof ReportError) {
+        throw new WorkspaceError(err.message, 'build');
+      }
       if (err instanceof CommandError && !err.timedOut && err.exitCode !== null) {
         throw new WorkspaceError(hidePaths(err.cliMessage), 'rejected');
       }
@@ -238,7 +255,7 @@ export class ModelWorkspace {
     }
   }
 
-  private async build(): Promise<void> {
+  private async build(models: GoModel[]): Promise<void> {
     const { srcDir, run, goBin = 'go', gitBin = 'git', buildTimeoutMs = 600_000 } = this.config;
     const version = await run(gitBin, ['describe', '--tags', '--always', '--dirty'], {
       cwd: srcDir,
@@ -254,7 +271,7 @@ export class ModelWorkspace {
         { cwd: srcDir, timeoutMs: buildTimeoutMs },
       );
       await rename(next, this.binPath);
-      await copyFile(this.modelsGo, this.builtModels);
+      await writeFile(this.builtModels, JSON.stringify(models, null, 2));
     } catch (err: unknown) {
       await rm(next, { force: true });
       const details =

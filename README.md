@@ -106,7 +106,6 @@ GORMCSV_SRC_REPO=~/projects/gormcsv npm run test:server:it
 - `TestTypes.csv` and `Country.csv`, copied from gormcsv's `static/fixtures`. `Country.csv` has a
   deliberately short row on line 148, which `inspectcsv` skips with a warning.
 - `BadQuotes.csv`, an unbalanced quote, which `inspectcsv` still rejects (422).
-- `inspect-golden.models.go`, real `inspectcsv` output used to test the Go model parser.
 
 Before committing:
 

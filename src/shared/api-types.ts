@@ -25,6 +25,8 @@ export interface ModelField {
   type: string;
   /** Struct tag without backticks, when the generator emitted one. */
   tag?: string;
+  /** CSV heading the field came from; absent for fields gormcsv adds, such as RowHash. */
+  column?: string;
 }
 
 export interface GoModel {
@@ -47,7 +49,7 @@ export interface InspectResult {
 
 /** The workspace gormcsv binary that can import the registered models. */
 export interface WorkspaceBinary {
-  /** `gormcsv version` of the build; ends in -dirty because models.go is regenerated. */
+  /** `gormcsv version` of the build; ends in -dirty when the generated models.go differs from the checkout. */
   version: string;
   /** ISO timestamp of the last successful build. */
   builtAt: string;
@@ -59,7 +61,7 @@ export interface WorkspaceStatus {
   problem?: string;
   /** Registered CSV filenames, one per model. */
   files: string[];
-  /** Models compiled into the workspace binary, parsed from its models.go. */
+  /** Models compiled into the workspace binary, from the inspectcsv report it was built with. */
   models: GoModel[];
   /** Null until the first successful build. */
   binary: WorkspaceBinary | null;
