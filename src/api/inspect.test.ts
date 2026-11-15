@@ -6,11 +6,27 @@ import express from 'express';
 import request from 'supertest';
 import { createApiRouter } from './api-router';
 import { CommandError, GormcsvRunner } from './commands';
-import { cliWarnings } from './inspect';
 import { safeCsvName } from './upload';
 
 const FIXTURE = 'fixtures/TestTypes.csv';
-const GOLDEN = 'fixtures/inspect-golden.models.go';
+const SOURCE = 'package importcsv\n\ntype TestTypes struct{}\n';
+
+/** A `gormcsv inspectcsv --json` report, with optional overrides. */
+function report(extra: object = {}) {
+  return JSON.stringify({
+    output: 'models.go',
+    models: [
+      {
+        key: 'testtypes',
+        name: 'TestTypes',
+        fields: [{ name: 'Wordcol', type: 'string', column: 'wordcol' }],
+      },
+    ],
+    skippedRows: {},
+    warnings: {},
+    ...extra,
+  });
+}
 
 let tempRoot: string;
 
@@ -32,13 +48,13 @@ function argValue(args: string[], flag: string): string {
   return args[args.indexOf(flag) + 1];
 }
 
-/** Stands in for gormcsv: records the uploaded CSV it was given and writes the golden models.go. */
+/** Stands in for gormcsv: records the uploaded CSV, writes models.go and prints a JSON report. */
 function fakeInspect() {
   const seen: { args: string[]; csv: string }[] = [];
   const runner = vi.fn<GormcsvRunner>(async (args) => {
     seen.push({ args, csv: await readFile(argValue(args, '--files'), 'utf8') });
-    await writeFile(argValue(args, '--output'), await readFile(GOLDEN, 'utf8'));
-    return { stdout: 'generated models.go\n', stderr: '' };
+    await writeFile(argValue(args, '--output'), SOURCE);
+    return { stdout: report(), stderr: '' };
   });
   return { runner, seen };
 }
@@ -49,22 +65,28 @@ async function expectTempRootEmpty() {
 }
 
 describe('POST /api/inspect', () => {
-  it('runs inspectcsv on the uploaded CSV and returns the parsed models and source', async () => {
+  it('runs inspectcsv --json on the uploaded CSV and returns its models and source', async () => {
     const { runner, seen } = fakeInspect();
 
     const res = await request(appWith(runner)).post('/api/inspect').attach('file', FIXTURE);
 
     expect(res.status).toBe(200);
-    expect(res.body.file).toBe('TestTypes.csv');
-    expect(res.body.models.map((m: { name: string }) => m.name)).toEqual([
-      'OrderItem',
-      'TestTypes',
-    ]);
-    expect(res.body.source).toBe(await readFile(GOLDEN, 'utf8'));
-    expect(res.body.warnings).toEqual([]);
+    expect(res.body).toEqual({
+      file: 'TestTypes.csv',
+      models: [
+        {
+          key: 'testtypes',
+          name: 'TestTypes',
+          fields: [{ name: 'Wordcol', type: 'string', column: 'wordcol' }],
+        },
+      ],
+      source: SOURCE,
+      warnings: [],
+    });
 
     const [{ args, csv }] = seen;
     expect(args[0]).toBe('inspectcsv');
+    expect(args.at(-1)).toBe('--json');
     expect(argValue(args, '--files')).toMatch(/gormcsv-upload-[^/]+\/TestTypes\.csv$/);
     expect(dirname(argValue(args, '--output'))).toBe(dirname(argValue(args, '--files')));
     expect(dirname(dirname(argValue(args, '--files')))).toBe(tempRoot);
@@ -72,13 +94,16 @@ describe('POST /api/inspect', () => {
     await expectTempRootEmpty();
   });
 
-  it('returns CLI warnings with the temp path replaced by the filename', async () => {
+  it('formats skipped rows and warnings from the report, showing the filename not the temp path', async () => {
     const runner = vi.fn<GormcsvRunner>(async (args) => {
       const path = argValue(args, '--files');
-      await writeFile(argValue(args, '--output'), await readFile(GOLDEN, 'utf8'));
+      await writeFile(argValue(args, '--output'), SOURCE);
       return {
-        stdout: 'generated models.go\n',
-        stderr: `warning: ${path}: skipped 1 row with the wrong number of fields (line 148)\n`,
+        stdout: report({
+          skippedRows: { [path]: [148] },
+          warnings: { [path]: ['column "model" generates field ModelField'] },
+        }),
+        stderr: '',
       };
     });
 
@@ -87,7 +112,25 @@ describe('POST /api/inspect', () => {
     expect(res.status).toBe(200);
     expect(res.body.warnings).toEqual([
       'TestTypes.csv: skipped 1 row with the wrong number of fields (line 148)',
+      'TestTypes.csv: column "model" generates field ModelField',
     ]);
+  });
+
+  it('returns 500 when gormcsv is too old to print a JSON report', async () => {
+    const runner = vi.fn<GormcsvRunner>(async (args) => {
+      await writeFile(argValue(args, '--output'), SOURCE);
+      return { stdout: 'generated models.go\n', stderr: '' };
+    });
+
+    const res = await request(appWith(runner)).post('/api/inspect').attach('file', FIXTURE);
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Inspect failed',
+      details: 'gormcsv inspectcsv did not print a JSON report; it may be too old',
+    });
+    await expectTempRootEmpty();
   });
 
   it('reduces a path-traversal filename to its basename inside the temp dir', async () => {
@@ -174,26 +217,13 @@ describe('POST /api/inspect', () => {
   });
 
   it('returns 500 when the CLI succeeds but writes no models file', async () => {
-    const runner = vi.fn<GormcsvRunner>().mockResolvedValue({ stdout: '', stderr: '' });
+    const runner = vi.fn<GormcsvRunner>().mockResolvedValue({ stdout: report(), stderr: '' });
 
     const res = await request(appWith(runner)).post('/api/inspect').attach('file', FIXTURE);
 
     expect(res.status).toBe(500);
     expect(res.body.details).toMatch(/ENOENT/);
     await expectTempRootEmpty();
-  });
-});
-
-describe('cliWarnings', () => {
-  it('keeps only "warning:" lines, without the prefix', () => {
-    const stderr =
-      'warning: a.csv: skipped 1 row (line 3)\nnoise\n\nwarning: b.csv: skipped 2 rows\n';
-
-    expect(cliWarnings(stderr)).toEqual(['a.csv: skipped 1 row (line 3)', 'b.csv: skipped 2 rows']);
-  });
-
-  it('returns nothing for empty stderr', () => {
-    expect(cliWarnings('')).toEqual([]);
   });
 });
 

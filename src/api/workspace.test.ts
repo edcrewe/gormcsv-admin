@@ -53,6 +53,26 @@ interface FakeOptions {
   importcsv?: (files: string) => Promise<{ stdout: string; stderr: string }>;
 }
 
+/** A `gormcsv importcsv --json` report from [model, inserted, duplicates, rejected] rows. */
+function importReport(rows: [string, number, number, number][], errors: string[] = []): string {
+  const files = rows.map(([model, inserted, duplicates, rejected]) => ({
+    file: `${model}.csv`,
+    model,
+    inserted,
+    duplicates,
+    rejected,
+  }));
+  const sum = (key: 'inserted' | 'duplicates' | 'rejected') =>
+    files.reduce((total, f) => total + f[key], 0);
+  return JSON.stringify({
+    files,
+    inserted: sum('inserted'),
+    duplicates: sum('duplicates'),
+    rejected: sum('rejected'),
+    errors,
+  });
+}
+
 /** Stands in for gormcsv, git and go, using the filesystem the same way they do. */
 function fakeTools(options: FakeOptions = {}) {
   const calls: { command: string; args: string[]; options?: RunOptions }[] = [];
@@ -90,14 +110,19 @@ function fakeTools(options: FakeOptions = {}) {
         ...structs,
       ].join('\n');
       await writeFile(output, source);
-      const stderr = files
-        .filter((f) => options.warn?.includes(f))
-        .map(
-          (f) =>
-            `warning: ${join(csvDir, f)}: skipped 1 row with the wrong number of fields (line 3)\n`,
-        )
-        .join('');
-      return { stdout: `generated ${output}\n`, stderr };
+      const report = {
+        output,
+        models: files.map((f) => ({
+          key: basename(f, '.csv').toLowerCase(),
+          name: structName(f),
+          fields: [{ name: 'Name', type: 'string', column: 'name' }],
+        })),
+        skippedRows: Object.fromEntries(
+          files.filter((f) => options.warn?.includes(f)).map((f) => [join(csvDir, f), [3]]),
+        ),
+        warnings: {},
+      };
+      return { stdout: JSON.stringify(report), stderr: '' };
     }
     if (command === 'git') {
       if (options.describeFails) throw new CommandError('not a git repository', '', 128);
@@ -123,10 +148,7 @@ function fakeTools(options: FakeOptions = {}) {
       const files = args[args.indexOf('--files') + 1];
       if (options.importcsv) return options.importcsv(files);
       const names = files.endsWith('.csv') ? [basename(files)] : (await readdir(files)).sort();
-      const stdout = names
-        .map((f) => `${structName(f)}: inserted 2, skipped 0 duplicates, rejected 0\n`)
-        .join('');
-      return { stdout, stderr: '' };
+      return { stdout: importReport(names.map((f) => [structName(f), 2, 0, 0])), stderr: '' };
     }
     throw new Error(`unexpected command ${command} ${args.join(' ')}`);
   };
@@ -188,6 +210,7 @@ describe('ModelWorkspace.register', () => {
       join(dir, 'csv'),
       '--output',
       modelsGo(),
+      '--json',
     ]);
     expect(tools.calls[1]).toMatchObject({
       args: ['describe', '--tags', '--always', '--dirty'],
@@ -210,7 +233,13 @@ describe('ModelWorkspace.register', () => {
     expect(result.status).toMatchObject({
       ready: true,
       files: ['users.csv'],
-      models: [{ name: 'Users', key: 'users', fields: [{ name: 'Name', type: 'string' }] }],
+      models: [
+        {
+          name: 'Users',
+          key: 'users',
+          fields: [{ name: 'Name', type: 'string', column: 'name' }],
+        },
+      ],
       binary: { version: VERSION },
     });
     expect(Date.parse(result.status.binary!.builtAt)).not.toBeNaN();
@@ -422,6 +451,7 @@ describe('ModelWorkspace.populate', () => {
       '500',
       '--workers',
       '2',
+      '--json',
     ]);
     expect(result).toEqual({
       complete: true,
@@ -464,14 +494,14 @@ describe('ModelWorkspace.populate', () => {
     const { workspace } = await built({
       importcsv: async (files) => {
         const error = `${files}/users.csv row 3: record on line 3: wrong number of fields`;
-        throw new CommandError(
-          'exit status 1',
-          `Error: ${error}\n${error}\n`,
-          1,
-          false,
-          'Orders: inserted 2, skipped 0 duplicates, rejected 0\n' +
-            'Users: inserted 1, skipped 1 duplicates, rejected 1\n',
+        const stdout = importReport(
+          [
+            ['Orders', 2, 0, 0],
+            ['Users', 1, 1, 1],
+          ],
+          [error],
         );
+        throw new CommandError('exit status 1', `Error: ${error}\n`, 1, false, stdout);
       },
     });
 
@@ -501,6 +531,45 @@ describe('ModelWorkspace.populate', () => {
     expect(err).toMatchObject({
       kind: 'failed',
       message: 'open sqlite database: unable to open database file',
+    });
+  });
+
+  it('asks for a rebuild when the workspace binary is too old to print a JSON report', async () => {
+    const { workspace } = await built({
+      importcsv: async () => ({
+        stdout: 'Users: inserted 2, skipped 0 duplicates, rejected 0\n',
+        stderr: '',
+      }),
+    });
+
+    const err = await workspace.populate(OPTIONS).catch((e: unknown) => e);
+
+    expect(err).toMatchObject({
+      kind: 'failed',
+      message:
+        'gormcsv importcsv did not print a JSON report; it may be too old; register a model to rebuild it',
+    });
+  });
+
+  it('reports the CLI error when importcsv fails with a JSON report that loaded nothing', async () => {
+    const { workspace } = await built({
+      importcsv: async (files) => {
+        const error = `${files}/other.csv: no model registered for "other"`;
+        throw new CommandError(
+          'exit status 1',
+          `Error: ${error}\n`,
+          1,
+          false,
+          importReport([], [error]),
+        );
+      },
+    });
+
+    const err = await workspace.populate(OPTIONS).catch((e: unknown) => e);
+
+    expect(err).toMatchObject({
+      kind: 'failed',
+      message: 'other.csv: no model registered for "other"',
     });
   });
 

@@ -49,7 +49,10 @@ export interface InspectResult {
 
 /** The workspace gormcsv binary that can import the registered models. */
 export interface WorkspaceBinary {
-  /** `gormcsv version` of the build; ends in -dirty when the generated models.go differs from the checkout. */
+  /**
+   * `gormcsv version` of the build. It ends in -dirty when the generated models.go differs from
+   * the checkout's own.
+   */
   version: string;
   /** ISO timestamp of the last successful build. */
   builtAt: string;

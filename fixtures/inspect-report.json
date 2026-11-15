@@ -1,0 +1,142 @@
+{
+  "output": "models.go",
+  "models": [
+    {
+      "key": "country",
+      "name": "Country",
+      "fields": [
+        {
+          "name": "Name",
+          "type": "string",
+          "column": "name"
+        },
+        {
+          "name": "Code",
+          "type": "string",
+          "column": "code"
+        },
+        {
+          "name": "Latitude",
+          "type": "float64",
+          "column": "latitude"
+        },
+        {
+          "name": "Longitude",
+          "type": "float64",
+          "column": "longitude"
+        },
+        {
+          "name": "Alias",
+          "type": "string",
+          "column": "alias"
+        },
+        {
+          "name": "Some",
+          "type": "string",
+          "column": "some"
+        },
+        {
+          "name": "Other",
+          "type": "int32",
+          "column": "other"
+        },
+        {
+          "name": "Data",
+          "type": "int16",
+          "column": "data"
+        },
+        {
+          "name": "That",
+          "type": "int16",
+          "column": "that"
+        },
+        {
+          "name": "We",
+          "type": "int16",
+          "column": "we"
+        },
+        {
+          "name": "Dont",
+          "type": "int16",
+          "column": "dont"
+        },
+        {
+          "name": "Have",
+          "type": "int8",
+          "column": "have"
+        },
+        {
+          "name": "In",
+          "type": "int16",
+          "column": "in"
+        },
+        {
+          "name": "Our",
+          "type": "int8",
+          "column": "our"
+        },
+        {
+          "name": "ModelField",
+          "type": "string",
+          "column": "model"
+        }
+      ]
+    },
+    {
+      "key": "testtypes",
+      "name": "TestTypes",
+      "fields": [
+        {
+          "name": "Wordcol",
+          "type": "string",
+          "column": "wordcol"
+        },
+        {
+          "name": "Codecol",
+          "type": "string",
+          "column": "codecol"
+        },
+        {
+          "name": "Textcol",
+          "type": "string",
+          "column": "textcol"
+        },
+        {
+          "name": "Bigtextcol",
+          "type": "string",
+          "column": "bigtextcol"
+        },
+        {
+          "name": "Numbercol",
+          "type": "float64",
+          "column": "numbercol"
+        },
+        {
+          "name": "Intcol",
+          "type": "int16",
+          "column": "intcol"
+        },
+        {
+          "name": "Boolcol",
+          "type": "bool",
+          "column": "boolcol"
+        },
+        {
+          "name": "Datecol",
+          "type": "time.Time",
+          "column": "datecol"
+        }
+      ]
+    }
+  ],
+  "skippedRows": {
+    "csv/Country.csv": [
+      148
+    ]
+  },
+  "warnings": {
+    "csv/Country.csv": [
+      "column \"model\" generates field ModelField, because Model is reserved by gorm.Model"
+    ]
+  }
+}

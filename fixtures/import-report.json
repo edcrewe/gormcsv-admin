@@ -1,0 +1,24 @@
+{
+  "files": [
+    {
+      "file": "csv/Country.csv",
+      "model": "Country",
+      "inserted": 245,
+      "duplicates": 0,
+      "rejected": 1
+    },
+    {
+      "file": "csv/TestTypes.csv",
+      "model": "TestTypes",
+      "inserted": 6,
+      "duplicates": 0,
+      "rejected": 0
+    }
+  ],
+  "inserted": 251,
+  "duplicates": 0,
+  "rejected": 1,
+  "errors": [
+    "csv/Country.csv row 148: record on line 148: wrong number of fields"
+  ]
+}

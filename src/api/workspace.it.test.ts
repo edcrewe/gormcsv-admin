@@ -44,10 +44,12 @@ describe.skipIf(!process.env['GORMCSV_IT'] || !repo)(
 
         expect(result.warnings).toEqual([
           'Country.csv: skipped 1 row with the wrong number of fields (line 148)',
+          'Country.csv: column "model" generates field ModelField, because Model is reserved by gorm.Model',
         ]);
         expect(result.status.files).toEqual(['Country.csv', 'TestTypes.csv']);
         expect(result.status.models.map((m) => m.name)).toEqual(['Country', 'TestTypes']);
-        expect(result.status.binary?.version).toMatch(/^v\d+\.\d+\.\d+.*-dirty$/);
+        // -dirty only when the generated models.go differs from the checkout's; these fixtures match it.
+        expect(result.status.binary?.version).toMatch(/^v\d+\.\d+\.\d+/);
 
         const populated = await workspace.populate({ batchSize: 100, workers: 1 });
         expect(populated).toMatchObject({

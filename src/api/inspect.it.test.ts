@@ -28,14 +28,14 @@ describe.skipIf(!process.env['GORMCSV_IT'])('POST /api/inspect with the real gor
         name: 'TestTypes',
         key: 'testtypes',
         fields: [
-          { name: 'Wordcol', type: 'string' },
-          { name: 'Codecol', type: 'string' },
-          { name: 'Textcol', type: 'string' },
-          { name: 'Bigtextcol', type: 'string' },
-          { name: 'Numbercol', type: 'float64' },
-          { name: 'Intcol', type: 'int16' },
-          { name: 'Boolcol', type: 'bool' },
-          { name: 'Datecol', type: 'time.Time' },
+          { name: 'Wordcol', type: 'string', column: 'wordcol' },
+          { name: 'Codecol', type: 'string', column: 'codecol' },
+          { name: 'Textcol', type: 'string', column: 'textcol' },
+          { name: 'Bigtextcol', type: 'string', column: 'bigtextcol' },
+          { name: 'Numbercol', type: 'float64', column: 'numbercol' },
+          { name: 'Intcol', type: 'int16', column: 'intcol' },
+          { name: 'Boolcol', type: 'bool', column: 'boolcol' },
+          { name: 'Datecol', type: 'time.Time', column: 'datecol' },
         ],
       },
     ]);
@@ -52,16 +52,16 @@ describe.skipIf(!process.env['GORMCSV_IT'])('POST /api/inspect with the real gor
     expect(res.body.models[0]).toMatchObject({ name: 'OrderItem', key: 'order-item' });
   });
 
-  // Country.csv has a deliberately short row (line 148). Needs gormcsv with ragged-row skipping
-  // (branch inspect-skip-ragged-rows); older binaries reject the whole file.
+  // Country.csv has a deliberately short row (line 148) and a "model" column, which gormcsv renames.
   it('generates the Country model and warns about the skipped short row', async () => {
     const res = await request(app).post('/api/inspect').attach('file', 'fixtures/Country.csv');
 
     expect(res.status).toBe(200);
     expect(res.body.models[0]).toMatchObject({ name: 'Country', key: 'country' });
-    expect(res.body.models[0].fields[0]).toEqual({ name: 'Name', type: 'string' });
+    expect(res.body.models[0].fields[0]).toEqual({ name: 'Name', type: 'string', column: 'name' });
     expect(res.body.warnings).toEqual([
       'Country.csv: skipped 1 row with the wrong number of fields (line 148)',
+      'Country.csv: column "model" generates field ModelField, because Model is reserved by gorm.Model',
     ]);
   });
 
