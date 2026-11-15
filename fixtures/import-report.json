@@ -18,7 +18,5 @@
   "inserted": 251,
   "duplicates": 0,
   "rejected": 1,
-  "errors": [
-    "csv/Country.csv row 148: record on line 148: wrong number of fields"
-  ]
+  "errors": ["csv/Country.csv row 148: record on line 148: wrong number of fields"]
 }

@@ -63,9 +63,7 @@ export interface WorkspaceBinary {
  * unique index over the key columns; --dedupe adds a RowHash of the whole row with a unique index.
  */
 export type DuplicateRule =
-  | { mode: 'allow' }
-  | { mode: 'key'; columns: string[] }
-  | { mode: 'identical' };
+  { mode: 'allow' } | { mode: 'key'; columns: string[] } | { mode: 'identical' };
 
 export interface WorkspaceStatus {
   /** False when the gormcsv source checkout is missing or unusable; see problem. */

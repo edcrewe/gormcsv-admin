@@ -4,5 +4,6 @@ import { DuplicateRule } from '../../shared/api-types';
 export function describeDuplicateRule(rule: DuplicateRule | undefined): string {
   if (!rule || rule.mode === 'allow') return 'imported again';
   if (rule.mode === 'identical') return 'skipped when the whole row matches';
-  return `skipped when ${rule.columns.join(' + ')} ${rule.columns.length === 1 ? 'matches' : 'match'}`;
+  const verb = rule.columns.length === 1 ? 'matches' : 'match';
+  return `skipped when ${rule.columns.join(' + ')} ${verb}`;
 }

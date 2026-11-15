@@ -130,9 +130,7 @@
     }
   ],
   "skippedRows": {
-    "csv/Country.csv": [
-      148
-    ]
+    "csv/Country.csv": [148]
   },
   "warnings": {
     "csv/Country.csv": [
