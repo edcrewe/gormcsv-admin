@@ -8,11 +8,16 @@ The Angular SSR Express server (`src/server.ts`) is a local bridge to the `gormc
 also an Angular learning exercise, so features are added one step at a time. Each step is a
 `feat:` commit then a `test:` commit, and stops for review before the next.
 
-## Status (2026-11-14)
+## Status (2026-11-15)
 
-Phases 0 to 4 are done: 74 Angular specs and 103 API tests pass (109 including the real-CLI and
-real-build integration tests), and the build passes. CI runs them all on push. The full flow works:
-upload, inspect, register (rebuild), then populate tables from the Models page.
+Phases 0 to 4 are done, plus two follow-ups: the admin reads gormcsv's `--json` reports instead
+of parsing its text, and registering a model sets its duplicate rule (`--key` or `--dedupe`). 86
+Angular specs and 125 API tests pass (131 including the real-CLI and real-build integration
+tests).
+
+**Before pushing the admin**, merge gormcsv branch `dedupe-and-fixes` (through `5d80040`) to
+master and install the new binary. The admin needs `--json`, `--key` and `--dedupe`, and CI's
+integration job builds gormcsv master.
 
 **Next: Phase 5, connection config.** Intended shape:
 
@@ -30,11 +35,11 @@ Notes for picking up:
   fixes found during this work in `~/projects/gormcsv`, checking the branch first.
 - Initial bundle is about 503 kB. The warning budget was raised to 600 kB (error still 1 MB)
   because the shared Material and Angular resource code now loads with `main`.
-- Workspace: a detached worktree at `~/.local/share/gormcsv-admin/gormcsv-src`, with `csv/` and
-  `bin/` beside it. The models the binary was built with are saved as `bin/models.json`, so the Models
-  page stays right even if the worktree is updated.
-- The local workspace currently has `TestTypes.csv` and `Country.csv` registered and built
-  (`v0.3.1-4-g5ad9de4-dirty`), and `gormcsv.db` has been populated from them. To reset it, remove `csv/` and `bin/`, then run
+- Workspace: a detached worktree at `~/.local/share/gormcsv-admin/gormcsv-src`, with `csv/`,
+  `bin/` and `duplicates.json` beside it. The models the binary was built with are saved as
+  `bin/models.json`, so the Models page stays right even if the worktree is updated.
+- The local workspace worktree is at gormcsv `5d80040`. Country is registered with a key on
+  `code`, and `gormcsv.db` has been populated from it. To reset it, remove `csv/` and `bin/`, then run
   `git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout -- importcsv/models.go`.
 - VS Code: if test globals go missing, run "TypeScript: Restart TS Server". All three tsconfigs
   are referenced from `tsconfig.json`.

@@ -82,7 +82,7 @@ describe('PopulatePanel', () => {
     ]);
     expect(input('Batch size').value).toBe('1000');
     expect(input('Workers').value).toBe('4');
-    expect(el.textContent).toContain('Importing again adds the rows again');
+    expect(el.textContent).toContain("depends on each model's duplicate rule");
   });
 
   it('imports every registered CSV when none is chosen', async () => {

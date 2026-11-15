@@ -38,6 +38,10 @@ The workspace dir then holds:
 - `csv/`, the registered CSVs, one per model
 - `bin/gormcsv`, the built binary
 - `gormcsv.db`, the SQLite database that **Populate tables** on the Models page imports into
+- `duplicates.json`, each model's duplicate rule: when registering, choose whether a row already
+  in the table is imported again, skipped when chosen key columns match (gormcsv `--key`), or
+  skipped when the whole row matches (`--dedupe`). Change a rule only while the model's table is
+  empty, because the unique index cannot be created over existing duplicates.
 
 To move the checkout to a newer gormcsv, discard the generated file and re-register a model to
 rebuild:

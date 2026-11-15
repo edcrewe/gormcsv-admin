@@ -17,6 +17,7 @@ const RESULT: RegisterResult = {
       { name: 'TestTypes', key: 'testtypes', fields: [] },
     ],
     binary: { version: 'v0.3.1-4-g5ad9de4-dirty', builtAt: '2026-11-13T11:10:04.849Z' },
+    duplicates: {},
   },
 };
 
@@ -37,14 +38,31 @@ describe('RegisterModel', () => {
     const fixture = TestBed.createComponent(RegisterModel);
     fixture.componentRef.setInput('file', new File(['a\n'], 'Country.csv'));
     fixture.componentRef.setInput('modelName', 'Country');
+    fixture.componentRef.setInput('columns', ['name', 'code', 'alias']);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    const button = () => el.querySelector<HTMLButtonElement>('button')!;
+    const button = () =>
+      Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.includes('Register'))!;
     const register = async () => {
       button().click();
       await fixture.whenStable();
     };
-    return { fixture, el, button, register };
+    const chooseMode = async (mode: string) => {
+      el.querySelector<HTMLInputElement>(`mat-radio-button[value="${mode}"] input`)!.click();
+      await fixture.whenStable();
+    };
+    const toggleColumn = async (column: string) => {
+      const box = Array.from(el.querySelectorAll('.key-columns mat-checkbox')).find(
+        (c) => c.textContent?.trim() === column,
+      )!;
+      box.querySelector('input')!.click();
+      await fixture.whenStable();
+    };
+    const sentFields = (req: ReturnType<HttpTestingController['expectOne']>) => {
+      const body = req.request.body as FormData;
+      return { duplicates: body.get('duplicates'), keyColumns: body.getAll('keyColumn') };
+    };
+    return { fixture, el, button, register, chooseMode, toggleColumn, sentFields };
   }
 
   it('offers to register the inspected model and explains the rebuild', async () => {
@@ -120,5 +138,72 @@ describe('RegisterModel', () => {
 
     expect(el.querySelector('[role="alert"]')).not.toBeNull();
     expect(el.querySelector('details')).toBeNull();
+  });
+
+  it('imports duplicates again by default and says so to the server', async () => {
+    const { el, register, sentFields } = await render();
+
+    expect(el.querySelector('mat-radio-button[value="allow"] input:checked')).not.toBeNull();
+    expect(el.querySelector('.key-columns')).toBeNull();
+    await register();
+
+    const req = httpTesting.expectOne('/api/models');
+    expect(sentFields(req)).toEqual({ duplicates: 'allow', keyColumns: [] });
+    req.flush(RESULT);
+  });
+
+  it('needs at least one key column before it can register with a key', async () => {
+    const { el, button, chooseMode, toggleColumn } = await render();
+
+    await chooseMode('key');
+
+    const boxes = Array.from(el.querySelectorAll('.key-columns mat-checkbox'));
+    expect(boxes.map((b) => b.textContent?.trim())).toEqual(['name', 'code', 'alias']);
+    expect(el.querySelector('.key-columns .hint')?.textContent).toContain('at least one');
+    expect(button().disabled).toBe(true);
+
+    await toggleColumn('code');
+    expect(button().disabled).toBe(false);
+    expect(el.querySelector('.key-columns .hint')).toBeNull();
+
+    await toggleColumn('code');
+    expect(button().disabled).toBe(true);
+  });
+
+  it('sends key columns in CSV order, whatever order they were ticked in', async () => {
+    const { chooseMode, toggleColumn, register, sentFields } = await render();
+
+    await chooseMode('key');
+    await toggleColumn('alias');
+    await toggleColumn('name');
+    await register();
+
+    const req = httpTesting.expectOne('/api/models');
+    expect(sentFields(req)).toEqual({ duplicates: 'key', keyColumns: ['name', 'alias'] });
+    req.flush(RESULT);
+  });
+
+  it('can skip identical rows instead', async () => {
+    const { el, chooseMode, register, sentFields } = await render();
+
+    await chooseMode('identical');
+    expect(el.querySelector('.key-columns')).toBeNull();
+    await register();
+
+    const req = httpTesting.expectOne('/api/models');
+    expect(sentFields(req)).toEqual({ duplicates: 'identical', keyColumns: [] });
+    req.flush(RESULT);
+  });
+
+  it('groups the choice under a legend, warns about existing rows, and passes AXE', async () => {
+    const { el, chooseMode } = await render();
+
+    await chooseMode('key');
+
+    expect(el.querySelector('fieldset legend')?.textContent).toContain(
+      'When a row is already in the table',
+    );
+    expect(el.querySelector('#duplicates-note')?.textContent).toContain('empty it before');
+    await expectNoAxeViolations(el);
   });
 });

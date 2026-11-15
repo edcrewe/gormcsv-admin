@@ -8,7 +8,7 @@ import { ModelsService, ModelsApiError } from './models.service';
 const RESULT: RegisterResult = {
   file: 'TestTypes.csv',
   warnings: [],
-  status: { ready: true, files: ['TestTypes.csv'], models: [], binary: null },
+  status: { ready: true, files: ['TestTypes.csv'], models: [], binary: null, duplicates: {} },
 };
 
 describe('ModelsService', () => {
@@ -95,5 +95,27 @@ describe('ModelsService', () => {
       );
 
     await expect(result).rejects.toThrow('No models are built yet; register a CSV first');
+  });
+
+  it('sends the duplicate rule as form fields before the file', async () => {
+    const result = firstValueFrom(
+      service.register(csv(), { mode: 'key', columns: ['order_id', 'line'] }),
+    );
+
+    const req = httpTesting.expectOne('/api/models');
+    const body = req.request.body as FormData;
+    expect(Array.from(body.keys())).toEqual(['duplicates', 'keyColumn', 'keyColumn', 'file']);
+    expect(body.getAll('keyColumn')).toEqual(['order_id', 'line']);
+    req.flush(RESULT);
+    await result;
+  });
+
+  it('sends no rule fields when no rule is given', async () => {
+    const result = firstValueFrom(service.register(csv()));
+
+    const req = httpTesting.expectOne('/api/models');
+    expect(Array.from((req.request.body as FormData).keys())).toEqual(['file']);
+    req.flush(RESULT);
+    await result;
   });
 });

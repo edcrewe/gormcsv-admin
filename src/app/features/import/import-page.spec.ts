@@ -13,8 +13,8 @@ const RESULT: InspectResult = {
       name: 'TestTypes',
       key: 'testtypes',
       fields: [
-        { name: 'Wordcol', type: 'string' },
-        { name: 'Intcol', type: 'int16' },
+        { name: 'Wordcol', type: 'string', column: 'wordcol' },
+        { name: 'Intcol', type: 'int16', column: 'intcol' },
       ],
     },
   ],
@@ -120,7 +120,18 @@ describe('ImportPage', () => {
     await fixture.whenStable();
 
     const step = el.querySelector('app-register-model')!;
-    expect(step.querySelector('button')?.textContent?.trim()).toBe('Register TestTypes');
+    const registerButton = Array.from(step.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Register'),
+    );
+    expect(registerButton?.textContent?.trim()).toBe('Register TestTypes');
+    // Key columns offered are the CSV headings from the inspect result.
+    step.querySelector<HTMLInputElement>('mat-radio-button[value="key"] input')!.click();
+    await fixture.whenStable();
+    expect(
+      Array.from(step.querySelectorAll('.key-columns mat-checkbox')).map((c) =>
+        c.textContent?.trim(),
+      ),
+    ).toEqual(['wordcol', 'intcol']);
 
     await choose('other.csv');
     expect(el.querySelector('app-register-model')).toBeNull();

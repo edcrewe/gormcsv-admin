@@ -10,7 +10,13 @@ import { routes } from './app.routes';
 import { expectNoAxeViolations } from '../testing/axe';
 import { WorkspaceStatus } from '../shared/api-types';
 
-const EMPTY_WORKSPACE: WorkspaceStatus = { ready: true, files: [], models: [], binary: null };
+const EMPTY_WORKSPACE: WorkspaceStatus = {
+  ready: true,
+  files: [],
+  models: [],
+  binary: null,
+  duplicates: {},
+};
 
 describe('App shell', () => {
   let httpTesting: HttpTestingController;

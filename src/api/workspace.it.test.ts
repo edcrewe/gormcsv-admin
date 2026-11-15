@@ -39,8 +39,11 @@ describe.skipIf(!process.env['GORMCSV_IT'] || !repo)(
       'registers fixtures, builds a binary that knows them, and imports with it',
       { timeout: 600_000 },
       async () => {
-        await workspace.register('fixtures/TestTypes.csv', 'TestTypes.csv');
-        const result = await workspace.register('fixtures/Country.csv', 'Country.csv');
+        await workspace.register('fixtures/TestTypes.csv', 'TestTypes.csv', { mode: 'identical' });
+        const result = await workspace.register('fixtures/Country.csv', 'Country.csv', {
+          mode: 'key',
+          columns: ['code'],
+        });
 
         expect(result.warnings).toEqual([
           'Country.csv: skipped 1 row with the wrong number of fields (line 148)',
@@ -57,6 +60,10 @@ describe.skipIf(!process.env['GORMCSV_IT'] || !repo)(
           totals: { inserted: 251, duplicates: 0, rejected: 1 },
           errors: ['Country.csv row 148: record on line 148: wrong number of fields'],
         });
+
+        // Both models have a duplicate rule, so a second import skips every row it loaded.
+        const again = await workspace.populate({ batchSize: 100, workers: 1 });
+        expect(again.totals).toEqual({ inserted: 0, duplicates: 251, rejected: 1 });
 
         const { stdout } = await exec(workspace.binPath, [
           'importcsv',

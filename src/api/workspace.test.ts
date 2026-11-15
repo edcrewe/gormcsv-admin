@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { CommandError, CommandRunner, RunOptions } from './commands';
-import { ModelWorkspace, WorkspaceError } from './workspace';
+import { ModelWorkspace, WorkspaceError, modelKey, ruleFlags } from './workspace';
 
 const UPSTREAM_MODELS = '// upstream models.go\npackage importcsv\n';
 const VERSION = 'v0.3.1-4-g5ad9de4-dirty';
@@ -167,7 +167,13 @@ describe('ModelWorkspace.status', () => {
   it('reports a ready, empty workspace before anything is registered', async () => {
     const workspace = workspaceWith(fakeTools());
 
-    expect(await workspace.status()).toEqual({ ready: true, files: [], models: [], binary: null });
+    expect(await workspace.status()).toEqual({
+      ready: true,
+      files: [],
+      models: [],
+      binary: null,
+      duplicates: {},
+    });
   });
 
   it('reports a problem when the gormcsv checkout is missing', async () => {
@@ -180,6 +186,7 @@ describe('ModelWorkspace.status', () => {
       files: [],
       models: [],
       binary: null,
+      duplicates: {},
     });
   });
 
@@ -625,5 +632,108 @@ describe('ModelWorkspace.populate', () => {
       'importcsv',
     ]);
     expect(result.files.map((f) => f.model)).toEqual(['Orders', 'Users']);
+  });
+});
+
+describe('ModelWorkspace duplicate rules', () => {
+  const inspectArgs = (tools: ReturnType<typeof fakeTools>) =>
+    tools.calls.filter((c) => c.args[0] === 'inspectcsv').at(-1)!.args;
+
+  it('applies a key rule as --key and saves it for the model', async () => {
+    const tools = fakeTools();
+    const workspace = workspaceWith(tools);
+
+    const result = await workspace.register(await upload('Orders.csv'), 'Orders.csv', {
+      mode: 'key',
+      columns: ['order_id', 'line'],
+    });
+
+    expect(inspectArgs(tools)).toContain('--key');
+    expect(inspectArgs(tools)).toContain('orders=order_id+line');
+    expect(result.status.duplicates).toEqual({
+      orders: { mode: 'key', columns: ['order_id', 'line'] },
+    });
+    expect(JSON.parse(await readFile(join(dir, 'duplicates.json'), 'utf8'))).toEqual(
+      result.status.duplicates,
+    );
+  });
+
+  it('keeps every model rule on later registrations, and a rule omitted on re-register', async () => {
+    const tools = fakeTools();
+    const workspace = workspaceWith(tools);
+    await workspace.register(await upload('users.csv'), 'users.csv', { mode: 'identical' });
+    await workspace.register(await upload('orders.csv'), 'orders.csv', {
+      mode: 'key',
+      columns: ['id'],
+    });
+
+    const result = await workspace.register(await upload('users.csv'), 'users.csv');
+
+    expect(inspectArgs(tools)).toEqual([
+      'inspectcsv',
+      '--files',
+      join(dir, 'csv'),
+      '--output',
+      modelsGo(),
+      '--key',
+      'orders=id',
+      '--dedupe',
+      'users',
+      '--json',
+    ]);
+    expect(result.status.duplicates).toEqual({
+      orders: { mode: 'key', columns: ['id'] },
+      users: { mode: 'identical' },
+    });
+  });
+
+  it('removes a model rule when set back to allow', async () => {
+    const tools = fakeTools();
+    const workspace = workspaceWith(tools);
+    await workspace.register(await upload('users.csv'), 'users.csv', { mode: 'identical' });
+
+    const result = await workspace.register(await upload('users.csv'), 'users.csv', {
+      mode: 'allow',
+    });
+
+    expect(result.status.duplicates).toEqual({});
+    expect(inspectArgs(tools)).not.toContain('--dedupe');
+  });
+
+  it('restores the previous rules when the build fails', async () => {
+    const good = fakeTools();
+    const workspace = workspaceWith(good);
+    await workspace.register(await upload('users.csv'), 'users.csv', { mode: 'identical' });
+    const failing = new ModelWorkspace({
+      dir,
+      srcDir,
+      run: fakeTools({ buildError: new CommandError('exit status 1', 'boom', 1) }).run,
+    });
+
+    await failing
+      .register(await upload('users.csv'), 'users.csv', { mode: 'key', columns: ['name'] })
+      .catch(() => undefined);
+
+    expect((await workspace.status()).duplicates).toEqual({ users: { mode: 'identical' } });
+  });
+});
+
+describe('modelKey and ruleFlags', () => {
+  it('derives gormcsv model keys from filenames', () => {
+    expect(modelKey('Order-Item.CSV')).toBe('order-item');
+    expect(modelKey('users.csv')).toBe('users');
+  });
+
+  it('turns rules into sorted gormcsv flags, skipping allow', () => {
+    expect(
+      ruleFlags({
+        zebra: { mode: 'identical' },
+        apple: { mode: 'key', columns: ['a', 'b'] },
+        plain: { mode: 'allow' },
+      }),
+    ).toEqual([
+      ['--key', 'apple=a+b'],
+      ['--dedupe', 'zebra'],
+    ]);
   });
 });
