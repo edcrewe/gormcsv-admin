@@ -10,7 +10,13 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';
-import { ImportRequest, ImportResult, RegisterResult, isApiError } from '../../../shared/api-types';
+import {
+  DuplicateRule,
+  ImportRequest,
+  ImportResult,
+  RegisterResult,
+  isApiError,
+} from '../../../shared/api-types';
 
 /** Raised when registering or importing fails; details carries tool output when there is any. */
 export class ModelsApiError extends Error {
@@ -28,8 +34,14 @@ export class ModelsApiError extends Error {
 export class ModelsService {
   private http = inject(HttpClient);
 
-  register(file: File): Observable<RegisterResult> {
+  /** duplicates sets how the model treats rows already in its table; omit to keep its rule. */
+  register(file: File, duplicates?: DuplicateRule): Observable<RegisterResult> {
     const body = new FormData();
+    // Rule fields go before the file so the server has them when the upload finishes.
+    if (duplicates) {
+      body.append('duplicates', duplicates.mode);
+      if (duplicates.mode === 'key') duplicates.columns.forEach((c) => body.append('keyColumn', c));
+    }
     body.append('file', file, file.name);
     return this.http
       .post<RegisterResult>('/api/models', body)

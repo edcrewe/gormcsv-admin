@@ -1,6 +1,6 @@
 /**
- * POST /api/inspect: shows the GORM model gormcsv would generate for an uploaded CSV, without storing
- * or changing anything. This is step 1 of the import flow. The csvUpload middleware has already
+ * POST /api/inspect: shows the GORM model gormcsv would generate for an uploaded CSV, without
+ * storing or changing anything. This is step 1 of the import flow. The csvUpload middleware has already
  * written the file to a per-request temp dir. This handler runs `inspectcsv --json` on it with its
  * output in the same dir. The JSON report gives the models, with each field's source column, plus
  * skipped ragged rows and other warnings; models.go is read back for the source preview. Temp

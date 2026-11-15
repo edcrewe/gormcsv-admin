@@ -1,19 +1,22 @@
 /**
  * Step 2 of the import flow: registers the inspected CSV as a model, which rebuilds the workspace
- * gormcsv on the server (src/api/workspace.ts explains why). On a cold build the request can take
- * minutes. The component therefore tracks a state signal (idle, registering, done or error), shows
- * a progress bar while the ModelsService Observable is pending, and disables the button so a second
- * build cannot be queued. file and modelName are signal inputs set by the import page. The page
- * destroys and re-creates this component when a new file is chosen, which resets its state with no
- * extra code.
+ * gormcsv on the server (src/api/workspace.ts explains why). It also sets how the model treats
+ * rows already in its table: import them again, skip rows whose key columns match, or skip rows
+ * that match exactly. The choice is held in plain signals (mode and the chosen key columns), and
+ * computed() derives the rule to send and whether it is complete. On a cold build the request can
+ * take minutes, so a state signal (idle, registering, done or error) drives a progress bar and
+ * disables the button. file, modelName and columns are signal inputs set by the import page,
+ * which re-creates this component for each new file, resetting all of it.
  */
 
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { RegisterResult } from '../../../shared/api-types';
+import { MatRadioModule } from '@angular/material/radio';
+import { DuplicateRule, RegisterResult } from '../../../shared/api-types';
 import { ModelsService, ModelsApiError } from '../models/models.service';
 
 type RegisterState =
@@ -25,100 +28,34 @@ type RegisterState =
 /** Step 2 of an import: adds the inspected CSV to the workspace and rebuilds gormcsv. */
 @Component({
   selector: 'app-register-model',
-  imports: [RouterLink, MatButtonModule, MatIconModule, MatProgressBarModule],
-  template: `
-    <section aria-labelledby="register-heading">
-      <h3 id="register-heading">2. Register the model</h3>
-      <p>
-        Registering adds {{ file().name }} to the workspace and rebuilds gormcsv with every
-        registered model, so it can import them. The first build can take a few minutes.
-      </p>
-      <button
-        matButton="filled"
-        type="button"
-        [disabled]="state().kind === 'registering'"
-        (click)="register()"
-      >
-        Register {{ modelName() }}
-      </button>
-      @if (state().kind === 'registering') {
-        <mat-progress-bar mode="indeterminate" aria-label="Building gormcsv" />
-      }
-
-      <div role="status" aria-live="polite">
-        @if (result(); as result) {
-          <div class="success">
-            <mat-icon aria-hidden="true">check_circle</mat-icon>
-            <span>
-              Registered {{ result.file }}. gormcsv {{ result.status.binary?.version }} can now
-              import {{ modelNames() }}.
-              <a routerLink="/models">Populate tables on the Models page</a>
-            </span>
-          </div>
-          @if (result.warnings.length) {
-            <ul class="warnings">
-              @for (warning of result.warnings; track $index) {
-                <li>{{ warning }}</li>
-              }
-            </ul>
-          }
-        }
-      </div>
-
-      @if (failure(); as failure) {
-        <div class="error" role="alert">
-          <mat-icon aria-hidden="true">error</mat-icon>
-          <span>{{ failure.message }}. The workspace was left unchanged.</span>
-        </div>
-        @if (failure.details) {
-          <details>
-            <summary>Build output</summary>
-            <pre tabindex="0">{{ failure.details }}</pre>
-          </details>
-        }
-      }
-    </section>
-  `,
-  styles: `
-    section {
-      margin-top: 24px;
-    }
-    mat-progress-bar {
-      margin-top: 12px;
-    }
-    .success,
-    .error {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 16px;
-      padding: 12px 16px;
-      border-radius: 8px;
-    }
-    .success {
-      background: var(--mat-sys-primary-container);
-      color: var(--mat-sys-on-primary-container);
-    }
-    .success a {
-      color: inherit;
-    }
-    .error {
-      background: var(--mat-sys-error-container);
-      color: var(--mat-sys-on-error-container);
-    }
-    pre {
-      overflow: auto;
-      max-height: 320px;
-      padding: 12px;
-      background: var(--mat-sys-surface-container);
-    }
-  `,
+  imports: [
+    RouterLink,
+    MatButtonModule,
+    MatCheckboxModule,
+    MatIconModule,
+    MatProgressBarModule,
+    MatRadioModule,
+  ],
+  templateUrl: './register-model.html',
+  styleUrl: './register-model.scss',
 })
 export class RegisterModel {
   private models = inject(ModelsService);
 
   readonly file = input.required<File>();
   readonly modelName = input.required<string>();
+  /** CSV headings that can form a key. */
+  readonly columns = input.required<string[]>();
+
+  protected readonly mode = signal<DuplicateRule['mode']>('allow');
+  protected readonly keyColumns = signal<readonly string[]>([]);
+  protected readonly rule = computed<DuplicateRule>(() => {
+    const mode = this.mode();
+    return mode === 'key' ? { mode, columns: [...this.keyColumns()] } : { mode };
+  });
+  protected readonly ruleComplete = computed(
+    () => this.mode() !== 'key' || this.keyColumns().length > 0,
+  );
 
   protected readonly state = signal<RegisterState>({ kind: 'idle' });
   protected readonly result = computed(() => {
@@ -136,10 +73,18 @@ export class RegisterModel {
         .join(', ') ?? '',
   );
 
+  protected setKeyColumn(column: string, checked: boolean): void {
+    // Keep the CSV's column order, so a composite key reads the same way as the file.
+    const chosen = new Set(this.keyColumns());
+    if (checked) chosen.add(column);
+    else chosen.delete(column);
+    this.keyColumns.set(this.columns().filter((c) => chosen.has(c)));
+  }
+
   protected register(): void {
-    if (this.state().kind === 'registering') return;
+    if (this.state().kind === 'registering' || !this.ruleComplete()) return;
     this.state.set({ kind: 'registering' });
-    this.models.register(this.file()).subscribe({
+    this.models.register(this.file(), this.rule()).subscribe({
       next: (result) => this.state.set({ kind: 'done', result }),
       error: (err: ModelsApiError) =>
         this.state.set({ kind: 'error', message: err.message, details: err.details }),

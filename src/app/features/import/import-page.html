@@ -69,6 +69,10 @@
   </section>
 
   @if (file(); as f) {
-    <app-register-model [file]="f" [modelName]="result.models[0]?.name ?? f.name" />
+    <app-register-model
+      [file]="f"
+      [modelName]="result.models[0]?.name ?? f.name"
+      [columns]="keyColumns()"
+    />
   }
 }

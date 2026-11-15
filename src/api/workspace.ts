@@ -20,6 +20,7 @@
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
+  DuplicateRule,
   GoModel,
   ImportRequest,
   ImportResult,
@@ -80,6 +81,8 @@ export class ModelWorkspace {
   /** The models the binary was built with, as JSON, so status survives checkout updates. */
   private readonly builtModels: string;
   private readonly modelsGo: string;
+  /** Duplicate rules per model key, applied every time models.go is regenerated. */
+  private readonly rulesPath: string;
   readonly databasePath: string;
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -89,14 +92,19 @@ export class ModelWorkspace {
     this.binPath = join(config.dir, 'bin', 'gormcsv');
     this.builtModels = join(config.dir, 'bin', 'models.json');
     this.modelsGo = join(config.srcDir, 'importcsv', 'models.go');
+    this.rulesPath = join(config.dir, 'duplicates.json');
   }
 
   status(): Promise<WorkspaceStatus> {
     return this.exclusive(() => this.readStatus());
   }
 
-  /** Copies the CSV into the workspace (replacing a same-named one) and rebuilds the binary. */
-  register(csvPath: string, filename: string): Promise<RegisterResult> {
+  /**
+   * Copies the CSV into the workspace (replacing a same-named one) and rebuilds the binary.
+   * duplicates sets how this model treats rows already in its table; omit it to keep the
+   * model's current rule.
+   */
+  register(csvPath: string, filename: string, duplicates?: DuplicateRule): Promise<RegisterResult> {
     return this.exclusive(async () => {
       const problem = await this.problem();
       if (problem) throw new WorkspaceError(problem, 'not-ready');
@@ -104,7 +112,9 @@ export class ModelWorkspace {
       await mkdir(this.csvDir, { recursive: true });
       await mkdir(join(this.config.dir, 'bin'), { recursive: true });
       const replaced = await this.sameModelFiles(filename);
+      const rules = await this.readRules();
       const backup = {
+        rules: structuredClone(rules),
         models: await readFile(this.modelsGo, 'utf8'),
         files: await Promise.all(
           replaced.map(async (name) => ({ name, data: await readFile(join(this.csvDir, name)) })),
@@ -114,13 +124,18 @@ export class ModelWorkspace {
       try {
         await Promise.all(replaced.map((name) => rm(join(this.csvDir, name))));
         await copyFile(csvPath, join(this.csvDir, filename));
-        const { warnings, models } = await this.generateModels();
+        const key = modelKey(filename);
+        if (duplicates?.mode === 'allow') delete rules[key];
+        else if (duplicates) rules[key] = duplicates;
+        await this.writeRules(rules);
+        const { warnings, models } = await this.generateModels(rules);
         await this.build(models);
         return { file: filename, warnings, status: await this.readStatus() };
       } catch (err: unknown) {
         await rm(join(this.csvDir, filename), { force: true });
         await Promise.all(backup.files.map((f) => writeFile(join(this.csvDir, f.name), f.data)));
         await writeFile(this.modelsGo, backup.models);
+        await this.writeRules(backup.rules);
         throw err;
       }
     });
@@ -199,9 +214,10 @@ export class ModelWorkspace {
     const binary = problem ? null : await this.binary();
     const built = binary ? await readFile(this.builtModels, 'utf8').catch(() => '[]') : '[]';
     const models = JSON.parse(built) as GoModel[];
+    const duplicates = await this.readRules();
     return problem
-      ? { ready: false, problem, files, models, binary }
-      : { ready: true, files, models, binary };
+      ? { ready: false, problem, files, models, binary, duplicates }
+      : { ready: true, files, models, binary, duplicates };
   }
 
   private async problem(): Promise<string | null> {
@@ -233,13 +249,30 @@ export class ModelWorkspace {
     return { version, builtAt: built.mtime.toISOString() };
   }
 
-  private async generateModels(): Promise<{ warnings: string[]; models: GoModel[] }> {
+  private async readRules(): Promise<Record<string, DuplicateRule>> {
+    const text = await readFile(this.rulesPath, 'utf8').catch(() => '{}');
+    return JSON.parse(text) as Record<string, DuplicateRule>;
+  }
+
+  private async writeRules(rules: Record<string, DuplicateRule>): Promise<void> {
+    await writeFile(this.rulesPath, JSON.stringify(rules, null, 2));
+  }
+
+  private async generateModels(
+    rules: Record<string, DuplicateRule>,
+  ): Promise<{ warnings: string[]; models: GoModel[] }> {
     const { gormcsvBin = 'gormcsv', run } = this.config;
     const hidePaths = (text: string) => text.replaceAll(`${this.csvDir}/`, '');
     try {
       const { stdout } = await run(
         gormcsvBin,
-        ['inspectcsv', '--files', this.csvDir, '--output', this.modelsGo, '--json'],
+        [
+          'inspectcsv',
+          ['--files', this.csvDir],
+          ['--output', this.modelsGo],
+          ...ruleFlags(rules),
+          '--json',
+        ].flat(),
         { timeoutMs: INSPECT_TIMEOUT_MS },
       );
       const report = parseInspectReport(stdout);
@@ -289,4 +322,21 @@ export class ModelWorkspace {
     this.queue = result.catch(() => undefined);
     return result;
   }
+}
+
+/** gormcsv keys a model by its lower-cased filename without .csv. */
+export function modelKey(filename: string): string {
+  return filename.replace(/\.csv$/i, '').toLowerCase();
+}
+
+/** gormcsv --key / --dedupe arguments for the rules, in a stable order. */
+export function ruleFlags(rules: Record<string, DuplicateRule>): string[][] {
+  return Object.keys(rules)
+    .sort()
+    .flatMap((key) => {
+      const rule = rules[key];
+      if (rule.mode === 'key') return [['--key', `${key}=${rule.columns.join('+')}`]];
+      if (rule.mode === 'identical') return [['--dedupe', key]];
+      return [];
+    });
 }

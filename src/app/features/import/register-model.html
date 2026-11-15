@@ -1,0 +1,82 @@
+<section aria-labelledby="register-heading">
+  <h3 id="register-heading">2. Register the model</h3>
+  <p>
+    Registering adds {{ file().name }} to the workspace and rebuilds gormcsv with every registered
+    model, so it can import them. The first build can take a few minutes.
+  </p>
+  <fieldset>
+    <legend>When a row is already in the table</legend>
+    <mat-radio-group
+      [value]="mode()"
+      (change)="mode.set($event.value)"
+      aria-describedby="duplicates-note"
+    >
+      <mat-radio-button value="allow">Import it again</mat-radio-button>
+      <mat-radio-button value="key">Skip it when the key columns match</mat-radio-button>
+      @if (mode() === 'key') {
+        <div class="key-columns" role="group" aria-label="Key columns">
+          @for (column of columns(); track column) {
+            <mat-checkbox
+              [checked]="keyColumns().includes(column)"
+              (change)="setKeyColumn(column, $event.checked)"
+              >{{ column }}</mat-checkbox
+            >
+          }
+          @if (!ruleComplete()) {
+            <p class="hint">Choose at least one key column.</p>
+          }
+        </div>
+      }
+      <mat-radio-button value="identical">Skip it when the whole row matches</mat-radio-button>
+    </mat-radio-group>
+    <p id="duplicates-note" class="hint">
+      A key adds a unique index. If the model's table already has rows, empty it before changing
+      this, or the index cannot be created over existing duplicates.
+    </p>
+  </fieldset>
+
+  <button
+    matButton="filled"
+    type="button"
+    [disabled]="state().kind === 'registering' || !ruleComplete()"
+    (click)="register()"
+  >
+    Register {{ modelName() }}
+  </button>
+  @if (state().kind === 'registering') {
+    <mat-progress-bar mode="indeterminate" aria-label="Building gormcsv" />
+  }
+
+  <div role="status" aria-live="polite">
+    @if (result(); as result) {
+      <div class="success">
+        <mat-icon aria-hidden="true">check_circle</mat-icon>
+        <span>
+          Registered {{ result.file }}. gormcsv {{ result.status.binary?.version }} can now import
+          {{ modelNames() }}.
+          <a routerLink="/models">Populate tables on the Models page</a>
+        </span>
+      </div>
+      @if (result.warnings.length) {
+        <ul class="warnings">
+          @for (warning of result.warnings; track $index) {
+            <li>{{ warning }}</li>
+          }
+        </ul>
+      }
+    }
+  </div>
+
+  @if (failure(); as failure) {
+    <div class="error" role="alert">
+      <mat-icon aria-hidden="true">error</mat-icon>
+      <span>{{ failure.message }}. The workspace was left unchanged.</span>
+    </div>
+    @if (failure.details) {
+      <details>
+        <summary>Build output</summary>
+        <pre tabindex="0">{{ failure.details }}</pre>
+      </details>
+    }
+  }
+</section>

@@ -14,6 +14,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { WorkspaceStatus, isApiError } from '../../../shared/api-types';
+import { describeDuplicateRule } from '../../shared/duplicate-rule';
 import { ModelFieldsTable } from '../../shared/model-fields-table';
 import { PopulatePanel } from './populate-panel';
 
@@ -44,6 +45,8 @@ export class ModelsPage {
     if (err instanceof HttpErrorResponse && isApiError(err.error)) return err.error.error;
     return 'Could not load the workspace';
   });
+
+  protected readonly describeRule = describeDuplicateRule;
 
   protected reload(): void {
     this.workspace.reload();

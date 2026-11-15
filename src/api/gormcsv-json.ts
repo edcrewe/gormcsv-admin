@@ -113,7 +113,8 @@ export function reportWarnings(
   const skipped = Object.entries(report.skippedRows).map(([path, lines]) => {
     const rows = lines.length === 1 ? 'row' : 'rows';
     const lineWord = lines.length === 1 ? 'line' : 'lines';
-    return `${showPath(path)}: skipped ${lines.length} ${rows} with the wrong number of fields (${lineWord} ${lines.join(', ')})`;
+    const where = `${lineWord} ${lines.join(', ')}`;
+    return `${showPath(path)}: skipped ${lines.length} ${rows} with the wrong number of fields (${where})`;
   });
   const other = Object.entries(report.warnings).flatMap(([path, warnings]) =>
     warnings.map((warning) => `${showPath(path)}: ${warning}`),

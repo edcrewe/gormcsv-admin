@@ -2,8 +2,8 @@
   <h3 id="populate-heading">Populate tables</h3>
   <p>
     Creates or updates each model's table to match the model, then loads the CSV rows. For now every
-    import goes to a SQLite database in the workspace. Importing again adds the rows again, because
-    generated models have no unique key.
+    import goes to a SQLite database in the workspace. Whether importing again adds rows again
+    depends on each model's duplicate rule, shown under its fields below.
   </p>
 
   <form (submit)="populate($event)" novalidate>

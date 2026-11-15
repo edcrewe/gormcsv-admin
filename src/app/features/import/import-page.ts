@@ -61,6 +61,13 @@ export class ImportPage {
     const s = this.state();
     return s.kind === 'done' ? s.result : null;
   });
+  /** CSV headings of the inspected model, offered as key columns when registering. */
+  protected readonly keyColumns = computed(
+    () =>
+      this.result()
+        ?.models[0]?.fields.map((f) => f.column)
+        .filter((c): c is string => !!c) ?? [],
+  );
   protected readonly errorMessage = computed(() => {
     const s = this.state();
     return s.kind === 'error' ? s.message : null;

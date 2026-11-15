@@ -61,6 +61,10 @@
       </h3>
       @for (model of status.models; track model.name) {
         <app-model-fields-table [model]="model" />
+        <p class="rule">
+          Duplicate rows are {{ describeRule(status.duplicates[model.key]) }} when importing
+          {{ model.name }}.
+        </p>
       }
     </section>
   }

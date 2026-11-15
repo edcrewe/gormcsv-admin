@@ -58,6 +58,15 @@ export interface WorkspaceBinary {
   builtAt: string;
 }
 
+/**
+ * What importing does with a row that is already in the table. gormcsv's --key gives the model a
+ * unique index over the key columns; --dedupe adds a RowHash of the whole row with a unique index.
+ */
+export type DuplicateRule =
+  | { mode: 'allow' }
+  | { mode: 'key'; columns: string[] }
+  | { mode: 'identical' };
+
 export interface WorkspaceStatus {
   /** False when the gormcsv source checkout is missing or unusable; see problem. */
   ready: boolean;
@@ -66,6 +75,8 @@ export interface WorkspaceStatus {
   files: string[];
   /** Models compiled into the workspace binary, from the inspectcsv report it was built with. */
   models: GoModel[];
+  /** Duplicate handling per model key; a model without an entry allows duplicates. */
+  duplicates: Record<string, DuplicateRule>;
   /** Null until the first successful build. */
   binary: WorkspaceBinary | null;
 }
