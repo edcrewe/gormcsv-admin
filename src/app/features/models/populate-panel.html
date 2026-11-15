@@ -1,0 +1,115 @@
+<section aria-labelledby="populate-heading">
+  <h3 id="populate-heading">Populate tables</h3>
+  <p>
+    Creates or updates each model's table to match the model, then loads the CSV rows. For now every
+    import goes to a SQLite database in the workspace. Importing again adds the rows again, because
+    generated models have no unique key.
+  </p>
+
+  <form (submit)="populate($event)" novalidate>
+    <div class="fields">
+      <mat-form-field appearance="outline">
+        <mat-label>CSV to import</mat-label>
+        <select matNativeControl [formField]="options.target">
+          <option value="">All registered CSVs</option>
+          @for (file of files(); track file) {
+            <option [value]="file">{{ file }}</option>
+          }
+        </select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Batch size</mat-label>
+        <input matInput type="number" [formField]="options.batchSize" />
+        <mat-hint>Rows per insert, {{ batchSizeRange.min }} to {{ batchSizeRange.max }}</mat-hint>
+        @if (options.batchSize().errors()[0]; as error) {
+          <mat-error>{{ error.message }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Workers</mat-label>
+        <input matInput type="number" [formField]="options.workers" />
+        <mat-hint>Concurrent writers; SQLite always uses one</mat-hint>
+        @if (options.workers().errors()[0]; as error) {
+          <mat-error>{{ error.message }}</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    <button matButton="filled" type="submit" [disabled]="options().submitting()">
+      <mat-icon aria-hidden="true">play_arrow</mat-icon>
+      Import
+    </button>
+  </form>
+
+  @if (options().submitting()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Importing" />
+  }
+
+  <div role="status" aria-live="polite">
+    @if (result(); as result) {
+      <p class="summary" [class.partial]="!result.complete">
+        <mat-icon aria-hidden="true">{{ result.complete ? 'check_circle' : 'warning' }}</mat-icon>
+        <span>
+          {{ result.complete ? 'Imported' : 'Partly imported' }}: {{ result.totals.inserted }} rows
+          inserted, {{ result.totals.duplicates }} duplicates skipped,
+          {{ result.totals.rejected }} rejected, into <code>{{ result.database }}</code>.
+        </span>
+      </p>
+    }
+  </div>
+
+  @if (result(); as result) {
+    <table mat-table [dataSource]="result.files">
+      <caption>
+        Rows per model
+      </caption>
+      <ng-container matColumnDef="model">
+        <th mat-header-cell *matHeaderCellDef scope="col">Model</th>
+        <td mat-cell *matCellDef="let row">{{ row.model }}</td>
+      </ng-container>
+      <ng-container matColumnDef="inserted">
+        <th mat-header-cell *matHeaderCellDef scope="col">Inserted</th>
+        <td mat-cell *matCellDef="let row">{{ row.inserted }}</td>
+      </ng-container>
+      <ng-container matColumnDef="duplicates">
+        <th mat-header-cell *matHeaderCellDef scope="col">Duplicates</th>
+        <td mat-cell *matCellDef="let row">{{ row.duplicates }}</td>
+      </ng-container>
+      <ng-container matColumnDef="rejected">
+        <th mat-header-cell *matHeaderCellDef scope="col">Rejected</th>
+        <td mat-cell *matCellDef="let row">{{ row.rejected }}</td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+
+    @if (result.errors.length) {
+      <h4>Rejected rows and errors</h4>
+      <ul class="errors">
+        @for (error of shownErrors(); track $index) {
+          <li>
+            <code>{{ error }}</code>
+          </li>
+        }
+      </ul>
+      @if (hiddenErrorCount()) {
+        <p>and {{ hiddenErrorCount() }} more.</p>
+      }
+    }
+  }
+
+  @if (failure(); as failure) {
+    <div class="error" role="alert">
+      <mat-icon aria-hidden="true">error</mat-icon>
+      <span>{{ failure.message }}</span>
+    </div>
+    @if (failure.details) {
+      <details>
+        <summary>Details</summary>
+        <pre tabindex="0">{{ failure.details }}</pre>
+      </details>
+    }
+  }
+</section>

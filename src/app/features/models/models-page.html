@@ -50,6 +50,10 @@
     }
   </section>
 
+  @if (status.binary && status.files.length) {
+    <app-populate-panel [files]="status.files" />
+  }
+
   @if (status.models.length) {
     <section aria-labelledby="registered-heading">
       <h3 id="registered-heading">

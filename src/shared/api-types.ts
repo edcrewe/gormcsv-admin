@@ -72,6 +72,31 @@ export interface RegisterResult {
   status: WorkspaceStatus;
 }
 
+export interface ImportRequest {
+  /** A registered CSV filename; omit to import every registered CSV. */
+  file?: string;
+  batchSize: number;
+  workers: number;
+}
+
+export interface ImportFileResult {
+  model: string;
+  inserted: number;
+  duplicates: number;
+  rejected: number;
+}
+
+export interface ImportResult {
+  /** False when importcsv exited with an error; valid rows are still committed. */
+  complete: boolean;
+  files: ImportFileResult[];
+  totals: { inserted: number; duplicates: number; rejected: number };
+  /** Row-level and file-level errors, e.g. "Country.csv row 148: ...". */
+  errors: string[];
+  /** Where the rows went. */
+  database: string;
+}
+
 export function isApiError(value: unknown): value is ApiError {
   return (
     typeof value === 'object' &&

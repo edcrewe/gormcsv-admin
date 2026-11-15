@@ -1,27 +1,29 @@
 /**
- * Registers a CSV with POST /api/models. Like InspectService, it returns an HttpClient Observable
- * and maps failures with catchError. Here they become a RegisterError, which also carries details
- * (the tail of the go build output), so the UI can show why a build failed. Writes like this use
- * HttpClient directly, because httpResource is meant for reads that follow signals.
+ * Workspace writes: registering a CSV (POST /api/models, which rebuilds gormcsv) and importing
+ * registered CSVs into the database (POST /api/import). Like InspectService, each returns an
+ * HttpClient Observable and maps failures with catchError. Here they become a ModelsApiError,
+ * which also carries details, such as the tail of the go build output, so the UI can show why
+ * something failed. Writes like this use HttpClient directly, because httpResource is meant for
+ * reads that follow signals.
  */
 
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';
-import { RegisterResult, isApiError } from '../../../shared/api-types';
+import { ImportRequest, ImportResult, RegisterResult, isApiError } from '../../../shared/api-types';
 
-/** Raised when registering fails; details carries go build output when there is any. */
-export class RegisterError extends Error {
+/** Raised when registering or importing fails; details carries tool output when there is any. */
+export class ModelsApiError extends Error {
   constructor(
     message: string,
     readonly details?: string,
   ) {
     super(message);
-    this.name = 'RegisterError';
+    this.name = 'ModelsApiError';
   }
 }
 
-/** Registers CSVs as models in the workspace, which rebuilds the workspace gormcsv. */
+/** Registers CSVs as models and imports them, using the workspace gormcsv. */
 @Service()
 export class ModelsService {
   private http = inject(HttpClient);
@@ -31,15 +33,22 @@ export class ModelsService {
     body.append('file', file, file.name);
     return this.http
       .post<RegisterResult>('/api/models', body)
-      .pipe(catchError((err: HttpErrorResponse) => throwError(() => toRegisterError(err))));
+      .pipe(catchError((err: HttpErrorResponse) => throwError(() => toModelsApiError(err))));
+  }
+
+  /** Migrates and populates tables from registered CSVs; resolves for partial imports too. */
+  populate(request: ImportRequest): Observable<ImportResult> {
+    return this.http
+      .post<ImportResult>('/api/import', request)
+      .pipe(catchError((err: HttpErrorResponse) => throwError(() => toModelsApiError(err))));
   }
 }
 
-export function toRegisterError(err: HttpErrorResponse): RegisterError {
+export function toModelsApiError(err: HttpErrorResponse): ModelsApiError {
   if (isApiError(err.error)) {
-    return new RegisterError(err.error.error, err.error.details);
+    return new ModelsApiError(err.error.error, err.error.details);
   }
-  return new RegisterError(
-    err.status === 0 ? 'Server unreachable' : `Registering failed (HTTP ${err.status})`,
+  return new ModelsApiError(
+    err.status === 0 ? 'Server unreachable' : `Request failed (HTTP ${err.status})`,
   );
 }

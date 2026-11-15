@@ -8,9 +8,10 @@
  * final 404 handler stops unknown /api paths from falling through to the Angular page renderer.
  */
 
-import { Router } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
 import type { HealthStatus } from '../shared/api-types';
 import { CommandError, GormcsvRunner, errorMessage } from './commands';
+import { createImportRouter } from './import-route';
 import { InspectDeps, createInspectRouter } from './inspect';
 import { createModelsRouter } from './models';
 import { UploadOptions } from './upload';
@@ -19,7 +20,7 @@ import { ModelWorkspace } from './workspace';
 export interface ApiDeps {
   runner: GormcsvRunner;
   inspect?: Omit<InspectDeps, 'runner'>;
-  /** Enables /api/models when provided. */
+  /** Enables /api/models and /api/import when provided. */
   workspace?: ModelWorkspace;
   upload?: UploadOptions;
 }
@@ -47,11 +48,27 @@ export function createApiRouter({ runner, inspect = {}, workspace, upload = {} }
   router.use('/inspect', createInspectRouter({ runner, ...upload, ...inspect }));
   if (workspace) {
     router.use('/models', createModelsRouter({ workspace, ...upload }));
+    router.use('/import', createImportRouter({ workspace }));
   }
 
   // Unknown API paths must not fall through to the Angular renderer.
   router.use((_req, res) => {
     res.status(404).json({ ok: false, error: 'Not found' });
+  });
+
+  // Errors thrown by middleware, such as malformed JSON from express.json(), would otherwise get
+  // Express's default HTML page with a stack trace. Keep every /api response JSON.
+  router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) {
+      next(err);
+      return;
+    }
+    const status = (err as { status?: unknown }).status;
+    if (typeof status === 'number' && status >= 400 && status < 500) {
+      res.status(status).json({ ok: false, error: 'Bad request', details: errorMessage(err) });
+      return;
+    }
+    res.status(500).json({ ok: false, error: 'Internal error', details: errorMessage(err) });
   });
 
   return router;

@@ -19,9 +19,16 @@
 
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { RegisterResult, WorkspaceBinary, WorkspaceStatus } from '../shared/api-types';
+import type {
+  ImportRequest,
+  ImportResult,
+  RegisterResult,
+  WorkspaceBinary,
+  WorkspaceStatus,
+} from '../shared/api-types';
 import { CommandError, CommandRunner, errorMessage } from './commands';
 import { parseGeneratedModels } from './go-model';
+import { parseImportOutput, totals } from './import-output';
 import { cliWarnings } from './inspect';
 
 export interface WorkspaceConfig {
@@ -36,9 +43,13 @@ export interface WorkspaceConfig {
   gitBin?: string;
   /** A cold build compiles the cgo SQLite driver, which can take minutes. Defaults to 10 min. */
   buildTimeoutMs?: number;
+  /** SQLite database that imports write to. Defaults to gormcsv.db in the workspace dir. */
+  databasePath?: string;
+  /** Large CSVs take a while to load. Defaults to 30 min. */
+  importTimeoutMs?: number;
 }
 
-export type WorkspaceErrorKind = 'not-ready' | 'rejected' | 'build';
+export type WorkspaceErrorKind = 'not-ready' | 'not-found' | 'rejected' | 'build' | 'failed';
 
 export class WorkspaceError extends Error {
   constructor(
@@ -63,9 +74,11 @@ export class ModelWorkspace {
   /** Copy of the models.go the binary was built from, so status survives checkout updates. */
   private readonly builtModels: string;
   private readonly modelsGo: string;
+  readonly databasePath: string;
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly config: WorkspaceConfig) {
+    this.databasePath = config.databasePath ?? join(config.dir, 'gormcsv.db');
     this.csvDir = join(config.dir, 'csv');
     this.binPath = join(config.dir, 'bin', 'gormcsv');
     this.builtModels = join(config.dir, 'bin', 'models.go');
@@ -105,6 +118,66 @@ export class ModelWorkspace {
         throw err;
       }
     });
+  }
+
+  /**
+   * Runs the workspace gormcsv's importcsv for one registered CSV, or all of them. importcsv
+   * AutoMigrates each model's table (creating or altering it) and then batch-inserts the rows.
+   * Queued with registrations, so an import never runs while the binary is being swapped.
+   */
+  populate({ file, batchSize, workers }: ImportRequest): Promise<ImportResult> {
+    return this.exclusive(async () => {
+      if (!(await stat(this.binPath).catch(() => null))) {
+        throw new WorkspaceError('No models are built yet; register a CSV first', 'not-ready');
+      }
+      if (file !== undefined && !(await this.csvFiles()).includes(file)) {
+        throw new WorkspaceError(`${file} is not a registered CSV`, 'not-found');
+      }
+      const files = file === undefined ? this.csvDir : join(this.csvDir, file);
+      const args = [
+        'importcsv',
+        ['--files', files],
+        ['--driver', 'sqlite'],
+        ['--dsn', this.databasePath],
+        ['--batch-size', String(batchSize)],
+        ['--workers', String(workers)],
+      ].flat();
+      const hidePaths = (text: string) => text.replaceAll(`${this.csvDir}/`, '');
+      const { importTimeoutMs = 1_800_000 } = this.config;
+
+      try {
+        const { stdout, stderr } = await this.config.run(this.binPath, args, {
+          timeoutMs: importTimeoutMs,
+        });
+        return this.importResult(true, stdout, stderr, hidePaths);
+      } catch (err: unknown) {
+        if (err instanceof CommandError && !err.timedOut && err.exitCode !== null) {
+          const result = this.importResult(false, err.stdout, err.stderr, hidePaths);
+          // Summary lines mean importcsv got as far as loading rows: a partial import.
+          if (result.files.length) return result;
+          throw new WorkspaceError(result.errors[0] ?? hidePaths(err.cliMessage), 'failed');
+        }
+        const message =
+          err instanceof CommandError && err.timedOut ? 'importcsv timed out' : 'Import failed';
+        throw new WorkspaceError(message, 'failed', errorMessage(err));
+      }
+    });
+  }
+
+  private importResult(
+    complete: boolean,
+    stdout: string,
+    stderr: string,
+    hidePaths: (text: string) => string,
+  ): ImportResult {
+    const { files, errors } = parseImportOutput(stdout, stderr);
+    return {
+      complete,
+      files,
+      totals: totals(files),
+      errors: errors.map(hidePaths),
+      database: this.databasePath,
+    };
   }
 
   private async readStatus(): Promise<WorkspaceStatus> {

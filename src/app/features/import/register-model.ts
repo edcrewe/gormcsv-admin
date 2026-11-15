@@ -14,7 +14,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RegisterResult } from '../../../shared/api-types';
-import { ModelsService, RegisterError } from '../models/models.service';
+import { ModelsService, ModelsApiError } from '../models/models.service';
 
 type RegisterState =
   | { kind: 'idle' }
@@ -52,7 +52,7 @@ type RegisterState =
             <span>
               Registered {{ result.file }}. gormcsv {{ result.status.binary?.version }} can now
               import {{ modelNames() }}.
-              <a routerLink="/models">View models</a>
+              <a routerLink="/models">Populate tables on the Models page</a>
             </span>
           </div>
           @if (result.warnings.length) {
@@ -141,7 +141,7 @@ export class RegisterModel {
     this.state.set({ kind: 'registering' });
     this.models.register(this.file()).subscribe({
       next: (result) => this.state.set({ kind: 'done', result }),
-      error: (err: RegisterError) =>
+      error: (err: ModelsApiError) =>
         this.state.set({ kind: 'error', message: err.message, details: err.details }),
     });
   }

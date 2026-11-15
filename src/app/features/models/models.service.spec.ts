@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { firstValueFrom } from 'rxjs';
 import { RegisterResult } from '../../../shared/api-types';
-import { ModelsService, RegisterError } from './models.service';
+import { ModelsService, ModelsApiError } from './models.service';
 
 const RESULT: RegisterResult = {
   file: 'TestTypes.csv',
@@ -48,7 +48,7 @@ describe('ModelsService', () => {
       );
 
     const err = await result.catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(RegisterError);
+    expect(err).toBeInstanceOf(ModelsApiError);
     expect(err).toMatchObject({ message: 'go build failed', details: 'undefined: Bogus' });
   });
 

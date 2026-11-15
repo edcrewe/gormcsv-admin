@@ -40,6 +40,8 @@ export class CommandError extends Error {
     readonly stderr = '',
     readonly exitCode: number | null = null,
     readonly timedOut = false,
+    /** Some commands, such as importcsv, report partial results on stdout before failing. */
+    readonly stdout = '',
   ) {
     super(message);
     this.name = 'CommandError';
@@ -54,6 +56,7 @@ export class CommandError extends Error {
 
 interface ExecFailure {
   message: string;
+  stdout?: string;
   stderr?: string;
   code?: number | string;
   killed?: boolean;
@@ -77,7 +80,13 @@ export function createCommandRunner(): CommandRunner {
       const exitCode = typeof failure.code === 'number' ? failure.code : null;
       const timedOut = failure.killed === true;
       const message = timedOut ? `${command} timed out after ${timeoutMs}ms` : errorMessage(err);
-      throw new CommandError(message, failure.stderr ?? '', exitCode, timedOut);
+      throw new CommandError(
+        message,
+        failure.stderr ?? '',
+        exitCode,
+        timedOut,
+        failure.stdout ?? '',
+      );
     }
   };
 }

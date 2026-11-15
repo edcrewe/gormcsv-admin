@@ -16,11 +16,19 @@ export interface ModelsDeps extends UploadOptions {
   workspace: ModelWorkspace;
 }
 
-const STATUS_FOR: Record<WorkspaceErrorKind, number> = {
+/** HTTP status for each WorkspaceError kind; also used by the import route. */
+export const STATUS_FOR: Record<WorkspaceErrorKind, number> = {
   'not-ready': 503,
+  'not-found': 404,
   rejected: 422,
   build: 500,
+  failed: 500,
 };
+
+export function sendWorkspaceError(res: Response, err: WorkspaceError): void {
+  const body = { ok: false, error: err.message, ...(err.details && { details: err.details }) };
+  res.status(STATUS_FOR[err.kind]).json(body);
+}
 
 export function createModelsRouter({ workspace, ...uploadOptions }: ModelsDeps): Router {
   const router = Router();

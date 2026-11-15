@@ -15,6 +15,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { WorkspaceStatus, isApiError } from '../../../shared/api-types';
 import { ModelFieldsTable } from '../../shared/model-fields-table';
+import { PopulatePanel } from './populate-panel';
 
 @Component({
   selector: 'app-models-page',
@@ -25,6 +26,7 @@ import { ModelFieldsTable } from '../../shared/model-fields-table';
     MatIconModule,
     MatProgressBarModule,
     ModelFieldsTable,
+    PopulatePanel,
   ],
   templateUrl: './models-page.html',
   styleUrl: './models-page.scss',
