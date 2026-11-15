@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { firstValueFrom } from 'rxjs';
-import { RegisterResult } from '../../../shared/api-types';
+import { ImportResult, RegisterResult } from '../../../shared/api-types';
 import { ModelsService, ModelsApiError } from './models.service';
 
 const RESULT: RegisterResult = {
@@ -54,7 +54,7 @@ describe('ModelsService', () => {
 
   it.each([
     [0, 'Server unreachable'],
-    [502, 'Registering failed (HTTP 502)'],
+    [502, 'Request failed (HTTP 502)'],
   ])('describes a status %i without a JSON body', async (status, message) => {
     const result = firstValueFrom(service.register(csv()));
 
@@ -63,5 +63,37 @@ describe('ModelsService', () => {
     else req.flush('bad gateway', { status, statusText: 'Bad Gateway' });
 
     await expect(result).rejects.toThrow(message);
+  });
+
+  it('POSTs an import request as JSON and returns the result', async () => {
+    const imported: ImportResult = {
+      complete: true,
+      files: [{ model: 'TestTypes', inserted: 6, duplicates: 0, rejected: 0 }],
+      totals: { inserted: 6, duplicates: 0, rejected: 0 },
+      errors: [],
+      database: '/ws/gormcsv.db',
+    };
+    const result = firstValueFrom(
+      service.populate({ file: 'TestTypes.csv', batchSize: 100, workers: 1 }),
+    );
+
+    const req = httpTesting.expectOne({ method: 'POST', url: '/api/import' });
+    expect(req.request.body).toEqual({ file: 'TestTypes.csv', batchSize: 100, workers: 1 });
+    req.flush(imported);
+
+    expect(await result).toEqual(imported);
+  });
+
+  it('turns an import error into a ModelsApiError', async () => {
+    const result = firstValueFrom(service.populate({ batchSize: 100, workers: 1 }));
+
+    httpTesting
+      .expectOne('/api/import')
+      .flush(
+        { ok: false, error: 'No models are built yet; register a CSV first' },
+        { status: 503, statusText: 'Unavailable' },
+      );
+
+    await expect(result).rejects.toThrow('No models are built yet; register a CSV first');
   });
 });

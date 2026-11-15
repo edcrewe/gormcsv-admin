@@ -49,6 +49,8 @@ interface FakeOptions {
   buildError?: CommandError;
   buildDelayMs?: number;
   describeFails?: boolean;
+  /** What the built binary's importcsv does; defaults to importing every file cleanly. */
+  importcsv?: (files: string) => Promise<{ stdout: string; stderr: string }>;
 }
 
 /** Stands in for gormcsv, git and go, using the filesystem the same way they do. */
@@ -116,6 +118,15 @@ function fakeTools(options: FakeOptions = {}) {
     }
     if (command.endsWith('/bin/gormcsv') && args[0] === 'version') {
       return { stdout: `gormcsv ${VERSION}\n`, stderr: '' };
+    }
+    if (command.endsWith('/bin/gormcsv') && args[0] === 'importcsv') {
+      const files = args[args.indexOf('--files') + 1];
+      if (options.importcsv) return options.importcsv(files);
+      const names = files.endsWith('.csv') ? [basename(files)] : (await readdir(files)).sort();
+      const stdout = names
+        .map((f) => `${structName(f)}: inserted 2, skipped 0 duplicates, rejected 0\n`)
+        .join('');
+      return { stdout, stderr: '' };
     }
     throw new Error(`unexpected command ${command} ${args.join(' ')}`);
   };
@@ -377,5 +388,173 @@ describe('ModelWorkspace concurrency', () => {
     expect(bad.status).toBe('rejected');
     expect(good.status).toBe('fulfilled');
     expect(await workspaceFiles()).toEqual(['good.csv']);
+  });
+});
+
+describe('ModelWorkspace.populate', () => {
+  async function built(options: FakeOptions = {}) {
+    const tools = fakeTools(options);
+    const workspace = workspaceWith(tools);
+    await workspace.register(await upload('users.csv'), 'users.csv');
+    await workspace.register(await upload('orders.csv'), 'orders.csv');
+    tools.calls.length = 0;
+    return { tools, workspace };
+  }
+
+  const OPTIONS = { batchSize: 500, workers: 2 };
+
+  it('runs the built binary on every registered CSV with the requested options', async () => {
+    const { tools, workspace } = await built();
+
+    const result = await workspace.populate(OPTIONS);
+
+    expect(tools.calls).toHaveLength(1);
+    expect(tools.calls[0].command).toBe(join(dir, 'bin', 'gormcsv'));
+    expect(tools.calls[0].args).toEqual([
+      'importcsv',
+      '--files',
+      join(dir, 'csv'),
+      '--driver',
+      'sqlite',
+      '--dsn',
+      join(dir, 'gormcsv.db'),
+      '--batch-size',
+      '500',
+      '--workers',
+      '2',
+    ]);
+    expect(result).toEqual({
+      complete: true,
+      files: [
+        { model: 'Orders', inserted: 2, duplicates: 0, rejected: 0 },
+        { model: 'Users', inserted: 2, duplicates: 0, rejected: 0 },
+      ],
+      totals: { inserted: 4, duplicates: 0, rejected: 0 },
+      errors: [],
+      database: join(dir, 'gormcsv.db'),
+    });
+  });
+
+  it('imports just one registered CSV when asked', async () => {
+    const { tools, workspace } = await built();
+
+    const result = await workspace.populate({ ...OPTIONS, file: 'users.csv' });
+
+    expect(tools.calls[0].args[2]).toBe(join(dir, 'csv', 'users.csv'));
+    expect(result.files.map((f) => f.model)).toEqual(['Users']);
+  });
+
+  it('writes to a configured database path', async () => {
+    const tools = fakeTools();
+    const workspace = new ModelWorkspace({
+      dir,
+      srcDir,
+      run: tools.run,
+      databasePath: '/data/x.db',
+    });
+    await workspace.register(await upload('users.csv'), 'users.csv');
+
+    const result = await workspace.populate(OPTIONS);
+
+    expect(tools.calls.at(-1)!.args).toContain('/data/x.db');
+    expect(result.database).toBe('/data/x.db');
+  });
+
+  it('returns a partial result, with workspace paths hidden, when importcsv rejects rows', async () => {
+    const { workspace } = await built({
+      importcsv: async (files) => {
+        const error = `${files}/users.csv row 3: record on line 3: wrong number of fields`;
+        throw new CommandError(
+          'exit status 1',
+          `Error: ${error}\n${error}\n`,
+          1,
+          false,
+          'Orders: inserted 2, skipped 0 duplicates, rejected 0\n' +
+            'Users: inserted 1, skipped 1 duplicates, rejected 1\n',
+        );
+      },
+    });
+
+    const result = await workspace.populate(OPTIONS);
+
+    expect(result).toMatchObject({
+      complete: false,
+      totals: { inserted: 3, duplicates: 1, rejected: 1 },
+      errors: ['users.csv row 3: record on line 3: wrong number of fields'],
+    });
+  });
+
+  it('fails without a partial result when importcsv loaded nothing', async () => {
+    const { workspace } = await built({
+      importcsv: async () => {
+        throw new CommandError(
+          'exit status 1',
+          'Error: open sqlite database: unable to open database file\n',
+          1,
+        );
+      },
+    });
+
+    const err = await workspace.populate(OPTIONS).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(WorkspaceError);
+    expect(err).toMatchObject({
+      kind: 'failed',
+      message: 'open sqlite database: unable to open database file',
+    });
+  });
+
+  it('reports a timeout', async () => {
+    const { workspace } = await built({
+      importcsv: async () => {
+        throw new CommandError('timed out', '', null, true);
+      },
+    });
+
+    const err = await workspace.populate(OPTIONS).catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ kind: 'failed', message: 'importcsv timed out' });
+  });
+
+  it('refuses before the first build', async () => {
+    const tools = fakeTools();
+
+    const err = await workspaceWith(tools)
+      .populate(OPTIONS)
+      .catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ kind: 'not-ready' });
+    expect(tools.calls).toEqual([]);
+  });
+
+  it('refuses a file that is not registered, including path tricks', async () => {
+    const { tools, workspace } = await built();
+
+    for (const file of ['missing.csv', '../users.csv', 'USERS.csv']) {
+      const err = await workspace.populate({ ...OPTIONS, file }).catch((e: unknown) => e);
+      expect(err).toMatchObject({ kind: 'not-found', message: `${file} is not a registered CSV` });
+    }
+    expect(tools.calls).toEqual([]);
+  });
+
+  it('waits for a queued registration to finish building before importing', async () => {
+    const tools = fakeTools({ buildDelayMs: 40 });
+    const workspace = workspaceWith(tools);
+    await workspace.register(await upload('users.csv'), 'users.csv');
+    tools.calls.length = 0;
+
+    const path = await upload('orders.csv');
+    const registering = workspace.register(path, 'orders.csv');
+    const importing = workspace.populate(OPTIONS);
+    const [, result] = await Promise.all([registering, importing]);
+
+    expect(tools.calls.map((c) => c.args[0])).toEqual([
+      'inspectcsv',
+      'describe',
+      'build',
+      'version',
+      'importcsv',
+    ]);
+    expect(result.files.map((f) => f.model)).toEqual(['Orders', 'Users']);
   });
 });

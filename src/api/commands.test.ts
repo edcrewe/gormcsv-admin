@@ -38,6 +38,19 @@ describe('createExecRunner', () => {
     expect((err as CommandError).cliMessage).toBe('bad csv');
   });
 
+  it('keeps stdout from a failing command, for partial results', async () => {
+    const run = createExecRunner({ binary: process.execPath });
+    const script =
+      'console.log("X: inserted 1, skipped 0 duplicates, rejected 1"); process.exit(1)';
+
+    const err = await run(['-e', script]).catch((e: unknown) => e);
+
+    expect(err).toMatchObject({
+      exitCode: 1,
+      stdout: 'X: inserted 1, skipped 0 duplicates, rejected 1\n',
+    });
+  });
+
   it('kills commands that exceed the timeout', async () => {
     const run = createExecRunner({ binary: process.execPath, timeoutMs: 100 });
 

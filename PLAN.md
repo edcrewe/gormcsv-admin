@@ -8,21 +8,20 @@ The Angular SSR Express server (`src/server.ts`) is a local bridge to the `gormc
 also an Angular learning exercise, so features are added one step at a time. Each step is a
 `feat:` commit then a `test:` commit, and stops for review before the next.
 
-## Status (2026-11-13)
+## Status (2026-11-14)
 
-Phases 0 to 3 are done: 58 Angular specs and 65 API tests pass (71 including the real-CLI and
-real-build integration tests), and the build passes. CI runs them all on push.
+Phases 0 to 4 are done: 74 Angular specs and 103 API tests pass (109 including the real-CLI and
+real-build integration tests), and the build passes. CI runs them all on push. The full flow works:
+upload, inspect, register (rebuild), then populate tables from the Models page.
 
-**Next: Phase 4, migrate and populate.** Intended shape:
+**Next: Phase 5, connection config.** Intended shape:
 
-- `POST /api/import` runs the workspace `bin/gormcsv importcsv` for registered models (one CSV or
-  all of `csv/`).
-- Parse the `<model>: inserted N, skipped N duplicates, rejected N` lines from stdout.
-  `importcsv` exits 1 when any row is rejected (e.g. Country line 148), so `CommandError` must
-  also carry stdout, and that case returns the partial results plus the row errors from stderr.
-- Signal Forms for batch size and workers. Driver and DSN stay server-side (Phase 5); use a
-  default SQLite DB in the workspace until then.
-- Material results table, and an "Import" action on the Models page and after registering.
+- `GORMCSV_DB_DRIVER` (sqlite, postgres or mysql) and `GORMCSV_DSN`, read by server.ts and passed
+  to the workspace. The default stays the workspace `gormcsv.db`.
+- The browser never sends a DSN. `GET /api/database` returns the driver and the DSN with any
+  password redacted, and the Models page and import summary show those.
+- Validate the driver against gormcsv's list. Test redaction for URL-style and key=value
+  Postgres DSNs and MySQL `user:pass@tcp(...)` DSNs.
 
 Notes for picking up:
 
@@ -35,7 +34,7 @@ Notes for picking up:
   `bin/` beside it. The built binary's `models.go` is copied to `bin/models.go`, so the Models
   page stays right even if the worktree is updated.
 - The local workspace currently has `TestTypes.csv` and `Country.csv` registered and built
-  (`v0.3.1-4-g5ad9de4-dirty`), ready for Phase 4. To reset it, remove `csv/` and `bin/`, then run
+  (`v0.3.1-4-g5ad9de4-dirty`), and `gormcsv.db` has been populated from them. To reset it, remove `csv/` and `bin/`, then run
   `git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout -- importcsv/models.go`.
 - VS Code: if test globals go missing, run "TypeScript: Restart TS Server". All three tsconfigs
   are referenced from `tsconfig.json`.
@@ -122,12 +121,15 @@ Project-specific:
 - Builds are serialised and timeout-bounded, and build errors are shown in the UI.
 - A models list shows what the current binary can import.
 
-### Phase 4: Migrate and populate
+### Phase 4: Migrate and populate (done)
 
-- `POST /api/import` runs the workspace binary.
-- Parse the `<model>: inserted N, skipped N duplicates, rejected N` lines into JSON. A non-zero
-  exit returns the partial results with the error.
-- Signal Forms for batch size and workers. Material results table.
+- `POST /api/import` runs the workspace binary's `importcsv` (AutoMigrate, then batch insert) for
+  one registered CSV or all of them, validating batch size and worker count.
+- Parses the summary lines. A non-zero exit that still printed summary lines is a partial import:
+  200 with `complete: false`, plus the row errors. `CommandError` keeps stdout for this.
+- An `/api` error handler keeps malformed-JSON errors as JSON.
+- Populate tables panel on the Models page: Signal Forms with Material `mat-error`, a results
+  `mat-table`, and the error list.
 
 ### Phase 5: Connection config
 

@@ -35,6 +35,7 @@ The workspace dir then holds:
 - `gormcsv-src/`, the checkout
 - `csv/`, the registered CSVs, one per model
 - `bin/gormcsv`, the built binary
+- `gormcsv.db`, the SQLite database that **Populate tables** on the Models page imports into
 
 To move the checkout to a newer gormcsv, discard the generated file and re-register a model to
 rebuild:
@@ -121,8 +122,8 @@ job builds gormcsv master with `make build` and runs `npm run test:server:it` ag
 ```text
 src/
   server.ts        Express server: /api router, static files, Angular SSR handler
-  api/             API routers (health, inspect, models), the model workspace and command runner,
-                   with *.test.ts beside them
+  api/             API routers (health, inspect, models, import), the model workspace and
+                   command runner, with *.test.ts beside them
   shared/          JSON types shared by the API and the Angular app
   app/             Angular app, with *.spec.ts beside components
     core/          App-wide services and components (CLI status)

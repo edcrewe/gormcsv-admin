@@ -61,6 +61,12 @@ describe('ModelsPage', () => {
     );
     expect(el.querySelectorAll('app-model-fields-table')).toHaveLength(2);
     expect(el.querySelector('mat-progress-bar')).toBeNull();
+    const options = Array.from(el.querySelectorAll('app-populate-panel option'));
+    expect(options.map((o) => o.textContent?.trim())).toEqual([
+      'All registered CSVs',
+      'Country.csv',
+      'TestTypes.csv',
+    ]);
     await expectNoAxeViolations(el);
   });
 
@@ -76,6 +82,7 @@ describe('ModelsPage', () => {
     );
 
     expect(el.textContent).toContain('Not built yet. Register a model to build it.');
+    expect(el.querySelector('app-populate-panel')).toBeNull();
     expect(el.querySelector('#registered-heading')).toBeNull();
     expect(el.querySelector('a[href="/import"]')).not.toBeNull();
   });

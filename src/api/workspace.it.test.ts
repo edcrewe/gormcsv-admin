@@ -49,6 +49,13 @@ describe.skipIf(!process.env['GORMCSV_IT'] || !repo)(
         expect(result.status.models.map((m) => m.name)).toEqual(['Country', 'TestTypes']);
         expect(result.status.binary?.version).toMatch(/^v\d+\.\d+\.\d+.*-dirty$/);
 
+        const populated = await workspace.populate({ batchSize: 100, workers: 1 });
+        expect(populated).toMatchObject({
+          complete: false,
+          totals: { inserted: 251, duplicates: 0, rejected: 1 },
+          errors: ['Country.csv row 148: record on line 148: wrong number of fields'],
+        });
+
         const { stdout } = await exec(workspace.binPath, [
           'importcsv',
           '--files',
