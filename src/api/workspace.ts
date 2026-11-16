@@ -86,6 +86,7 @@ export class ModelWorkspace {
   private readonly rulesPath: string;
   readonly database: DatabaseConfig;
   private queue: Promise<unknown> = Promise.resolve();
+  private envDsnCheck?: { builtAt: number; supported: boolean };
 
   constructor(private readonly config: WorkspaceConfig) {
     this.database = config.database ?? { driver: 'sqlite', dsn: join(config.dir, 'gormcsv.db') };
@@ -155,12 +156,19 @@ export class ModelWorkspace {
       if (file !== undefined && !(await this.csvFiles()).includes(file)) {
         throw new WorkspaceError(`${file} is not a registered CSV`, 'not-found');
       }
+      // The DSN goes in the environment: as an argument it would show in the process list.
+      if (!(await this.binaryReadsDsnFromEnv())) {
+        throw new WorkspaceError(
+          'The workspace gormcsv cannot take the database from GORMCSV_DSN; register a model to ' +
+            'rebuild it with a newer gormcsv',
+          'not-ready',
+        );
+      }
       const files = file === undefined ? this.csvDir : join(this.csvDir, file);
       const args = [
         'importcsv',
         ['--files', files],
         ['--driver', this.database.driver],
-        ['--dsn', this.database.dsn],
         ['--batch-size', String(batchSize)],
         ['--workers', String(workers)],
         '--json',
@@ -172,6 +180,7 @@ export class ModelWorkspace {
       try {
         const { stdout } = await this.config.run(this.binPath, args, {
           timeoutMs: importTimeoutMs,
+          env: { GORMCSV_DSN: this.database.dsn },
         });
         return this.importResult(true, stdout, clean);
       } catch (err: unknown) {
@@ -190,6 +199,22 @@ export class ModelWorkspace {
         throw new WorkspaceError(message, 'failed', clean(errorMessage(err)));
       }
     });
+  }
+
+  /**
+   * Whether the built binary's importcsv reads GORMCSV_DSN. One that does not would ignore it and
+   * write to gormcsv.db in the current directory, so check its help once per build.
+   */
+  private async binaryReadsDsnFromEnv(): Promise<boolean> {
+    const builtAt = (await stat(this.binPath)).mtimeMs;
+    if (this.envDsnCheck?.builtAt !== builtAt) {
+      const help = await this.config
+        .run(this.binPath, ['importcsv', '--help'])
+        .then(({ stdout }) => stdout)
+        .catch(() => '');
+      this.envDsnCheck = { builtAt, supported: help.includes('GORMCSV_DSN') };
+    }
+    return this.envDsnCheck.supported;
   }
 
   private partialResult(stdout: string, clean: (text: string) => string): ImportResult | null {

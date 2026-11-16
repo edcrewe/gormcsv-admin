@@ -21,6 +21,9 @@ export interface RunResult {
 export interface RunOptions {
   cwd?: string;
   timeoutMs?: number;
+  /** Extra environment variables, added to the server's own. Unlike arguments, these are not
+   * visible to other local users in the process list. */
+  env?: Record<string, string>;
 }
 
 /** Runs any command without a shell. Injected so callers can be tested without real binaries. */
@@ -67,10 +70,11 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_BUFFER = 16 * 1024 * 1024;
 
 export function createCommandRunner(): CommandRunner {
-  return async (command, args, { cwd, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) => {
+  return async (command, args, { cwd, timeoutMs = DEFAULT_TIMEOUT_MS, env } = {}) => {
     try {
       const { stdout, stderr } = await execFileAsync(command, args, {
         cwd,
+        env: env ? { ...process.env, ...env } : undefined,
         timeout: timeoutMs,
         maxBuffer: MAX_BUFFER,
       });
