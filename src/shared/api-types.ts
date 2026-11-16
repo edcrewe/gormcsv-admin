@@ -58,6 +58,14 @@ export interface WorkspaceBinary {
   builtAt: string;
 }
 
+export type DatabaseDriver = 'sqlite' | 'postgres' | 'mysql';
+
+/** The database imports write to. dsn has any password replaced by ***. */
+export interface DatabaseInfo {
+  driver: DatabaseDriver;
+  dsn: string;
+}
+
 /**
  * What importing does with a row that is already in the table. gormcsv's --key gives the model a
  * unique index over the key columns; --dedupe adds a RowHash of the whole row with a unique index.
@@ -75,6 +83,8 @@ export interface WorkspaceStatus {
   models: GoModel[];
   /** Duplicate handling per model key; a model without an entry allows duplicates. */
   duplicates: Record<string, DuplicateRule>;
+  /** Where imports write to. */
+  database: DatabaseInfo;
   /** Null until the first successful build. */
   binary: WorkspaceBinary | null;
 }
@@ -108,7 +118,7 @@ export interface ImportResult {
   /** Row-level and file-level errors, e.g. "Country.csv row 148: ...". */
   errors: string[];
   /** Where the rows went. */
-  database: string;
+  database: DatabaseInfo;
 }
 
 export function isApiError(value: unknown): value is ApiError {

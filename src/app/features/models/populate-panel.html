@@ -1,9 +1,9 @@
 <section aria-labelledby="populate-heading">
   <h3 id="populate-heading">Populate tables</h3>
   <p>
-    Creates or updates each model's table to match the model, then loads the CSV rows. For now every
-    import goes to a SQLite database in the workspace. Whether importing again adds rows again
-    depends on each model's duplicate rule, shown under its fields below.
+    Creates or updates each model's table to match the model, then loads the CSV rows into the
+    database shown above. Whether importing again adds rows again depends on each model's duplicate
+    rule, shown under its fields below.
   </p>
 
   <form (submit)="populate($event)" novalidate>
@@ -54,7 +54,8 @@
         <span>
           {{ result.complete ? 'Imported' : 'Partly imported' }}: {{ result.totals.inserted }} rows
           inserted, {{ result.totals.duplicates }} duplicates skipped,
-          {{ result.totals.rejected }} rejected, into <code>{{ result.database }}</code>.
+          {{ result.totals.rejected }} rejected, into {{ result.database.driver }}
+          <code>{{ result.database.dsn }}</code>.
         </span>
       </p>
     }

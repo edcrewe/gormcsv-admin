@@ -48,6 +48,9 @@
     } @else {
       <p>Not built yet. Register a model to build it.</p>
     }
+    <p class="database">
+      Imports go to {{ status.database.driver }} <code>{{ status.database.dsn }}</code>.
+    </p>
   </section>
 
   @if (status.binary && status.files.length) {

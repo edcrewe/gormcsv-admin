@@ -29,6 +29,7 @@ import type {
   WorkspaceStatus,
 } from '../shared/api-types';
 import { CommandError, CommandRunner, errorMessage } from './commands';
+import { DatabaseConfig, databaseInfo, scrub } from './database';
 import {
   ReportError,
   parseImportReport,
@@ -50,8 +51,8 @@ export interface WorkspaceConfig {
   gitBin?: string;
   /** A cold build compiles the cgo SQLite driver, which can take minutes. Defaults to 10 min. */
   buildTimeoutMs?: number;
-  /** SQLite database that imports write to. Defaults to gormcsv.db in the workspace dir. */
-  databasePath?: string;
+  /** Database that imports write to. Defaults to SQLite at gormcsv.db in the workspace dir. */
+  database?: DatabaseConfig;
   /** Large CSVs take a while to load. Defaults to 30 min. */
   importTimeoutMs?: number;
 }
@@ -83,11 +84,11 @@ export class ModelWorkspace {
   private readonly modelsGo: string;
   /** Duplicate rules per model key, applied every time models.go is regenerated. */
   private readonly rulesPath: string;
-  readonly databasePath: string;
+  readonly database: DatabaseConfig;
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly config: WorkspaceConfig) {
-    this.databasePath = config.databasePath ?? join(config.dir, 'gormcsv.db');
+    this.database = config.database ?? { driver: 'sqlite', dsn: join(config.dir, 'gormcsv.db') };
     this.csvDir = join(config.dir, 'csv');
     this.binPath = join(config.dir, 'bin', 'gormcsv');
     this.builtModels = join(config.dir, 'bin', 'models.json');
@@ -158,41 +159,52 @@ export class ModelWorkspace {
       const args = [
         'importcsv',
         ['--files', files],
-        ['--driver', 'sqlite'],
-        ['--dsn', this.databasePath],
+        ['--driver', this.database.driver],
+        ['--dsn', this.database.dsn],
         ['--batch-size', String(batchSize)],
         ['--workers', String(workers)],
         '--json',
       ].flat();
-      const hidePaths = (text: string) => text.replaceAll(`${this.csvDir}/`, '');
+      // Workspace paths mean nothing to users, and a driver error could echo the DSN password.
+      const clean = (text: string) => scrub(text.replaceAll(`${this.csvDir}/`, ''), this.database);
       const { importTimeoutMs = 1_800_000 } = this.config;
 
       try {
         const { stdout } = await this.config.run(this.binPath, args, {
           timeoutMs: importTimeoutMs,
         });
-        return this.importResult(true, stdout, hidePaths);
+        return this.importResult(true, stdout, clean);
       } catch (err: unknown) {
         if (err instanceof ReportError) {
           throw new WorkspaceError(`${err.message}; register a model to rebuild it`, 'failed');
         }
         if (err instanceof CommandError && !err.timedOut && err.exitCode !== null) {
-          // importcsv prints its report before failing when it got as far as loading rows.
-          const result = err.stdout.trim() ? this.importResult(false, err.stdout, hidePaths) : null;
+          // importcsv prints its report before failing when it got as far as loading rows. If
+          // stdout is not a report (it failed before that), its own error message is the answer.
+          const result = this.partialResult(err.stdout, clean);
           if (result?.files.length) return result;
-          throw new WorkspaceError(result?.errors[0] ?? hidePaths(err.cliMessage), 'failed');
+          throw new WorkspaceError(result?.errors[0] ?? clean(err.cliMessage), 'failed');
         }
         const message =
           err instanceof CommandError && err.timedOut ? 'importcsv timed out' : 'Import failed';
-        throw new WorkspaceError(message, 'failed', errorMessage(err));
+        throw new WorkspaceError(message, 'failed', clean(errorMessage(err)));
       }
     });
+  }
+
+  private partialResult(stdout: string, clean: (text: string) => string): ImportResult | null {
+    try {
+      return stdout.trim() ? this.importResult(false, stdout, clean) : null;
+    } catch (err: unknown) {
+      if (err instanceof ReportError) return null;
+      throw err;
+    }
   }
 
   private importResult(
     complete: boolean,
     stdout: string,
-    hidePaths: (text: string) => string,
+    clean: (text: string) => string,
   ): ImportResult {
     const report = parseImportReport(stdout);
     return {
@@ -203,8 +215,8 @@ export class ModelWorkspace {
         duplicates: report.duplicates,
         rejected: report.rejected,
       },
-      errors: report.errors.map(hidePaths),
-      database: this.databasePath,
+      errors: report.errors.map(clean),
+      database: databaseInfo(this.database),
     };
   }
 
@@ -215,9 +227,10 @@ export class ModelWorkspace {
     const built = binary ? await readFile(this.builtModels, 'utf8').catch(() => '[]') : '[]';
     const models = JSON.parse(built) as GoModel[];
     const duplicates = await this.readRules();
+    const database = databaseInfo(this.database);
     return problem
-      ? { ready: false, problem, files, models, binary, duplicates }
-      : { ready: true, files, models, binary, duplicates };
+      ? { ready: false, problem, files, models, binary, duplicates, database }
+      : { ready: true, files, models, binary, duplicates, database };
   }
 
   private async problem(): Promise<string | null> {

@@ -19,6 +19,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createApiRouter } from './api/api-router';
 import { createCommandRunner, createExecRunner } from './api/commands';
+import { databaseFromEnv } from './api/database';
 import { ModelWorkspace } from './api/workspace';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
@@ -39,6 +40,8 @@ const workspace = new ModelWorkspace({
   run,
   gormcsvBin: env['GORMCSV_BIN'],
   goBin: env['GO_BIN'],
+  // Throws on a bad GORMCSV_DB_DRIVER/GORMCSV_DSN, so misconfiguration stops the server at startup.
+  database: databaseFromEnv(env, join(workspaceDir, 'gormcsv.db')),
 });
 app.use(
   '/api',
