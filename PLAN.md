@@ -33,9 +33,15 @@ Notes for picking up:
 - Workspace: a detached worktree at `~/.local/share/gormcsv-admin/gormcsv-src`, with `csv/`,
   `bin/` and `duplicates.json` beside it. The models the binary was built with are saved as
   `bin/models.json`, so the Models page stays right even if the worktree is updated.
-- The local workspace worktree is at gormcsv `6678dfb`. Country is registered with a key on
-  `code`, and `gormcsv.db` has been populated from it. To reset it, remove `csv/` and `bin/`, then run
+- The local workspace worktree is at gormcsv `6678dfb`. It holds only fixture data from manual
+  checks: Country (key on `code`) and TestTypes registered, and `gormcsv.db` with `countries`
+  (245 rows) and `test_types` (6 rows). Automated tests use temp dirs and never touch it.
+  Country's `some … model` columns are a deliberate fixture header ("some other data that we dont
+  have in our model"), not test leakage. Ed may want it reset: remove `csv/`, `bin/`,
+  `duplicates.json` and `gormcsv.db`, then run
   `git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout -- importcsv/models.go`.
+- Start admin servers as `VAR=x node dist/gormcsv-admin/server/server.mjs &` so `$!` is node's
+  PID; `nohup env … node` gave a wrapper PID and left stale servers on port 4123.
 - VS Code: if test globals go missing, run "TypeScript: Restart TS Server". All three tsconfigs
   are referenced from `tsconfig.json`.
 - Stop a background server by PID, not `pkill -f`, which can match the calling shell.
