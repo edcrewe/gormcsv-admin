@@ -34,7 +34,10 @@ export type CommandRunner = (
 ) => Promise<RunResult>;
 
 /** Runs the gormcsv CLI with the given arguments. */
-export type GormcsvRunner = (args: string[]) => Promise<RunResult>;
+export type GormcsvRunner = (
+  args: string[],
+  options?: Pick<RunOptions, 'env'>,
+) => Promise<RunResult>;
 
 /** A command that did not succeed: non-zero exit, timeout, or the binary failed to start. */
 export class CommandError extends Error {
@@ -50,10 +53,17 @@ export class CommandError extends Error {
     this.name = 'CommandError';
   }
 
-  /** The CLI's own error message: first stderr line without cobra's "Error: " prefix. */
+  /**
+   * The CLI's own error message: its "Error: " line, without the prefix. gormcsv prints that last,
+   * after any log lines from GORM, so prefer it; otherwise use the first non-empty line.
+   */
   get cliMessage(): string {
-    const first = this.stderr.trim().split('\n')[0] ?? '';
-    return first.replace(/^Error:\s*/, '') || this.message;
+    const lines = this.stderr
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const errorLine = lines.find((line) => line.startsWith('Error:'));
+    return (errorLine ?? lines[0] ?? '').replace(/^Error:\s*/, '') || this.message;
   }
 }
 
@@ -106,7 +116,7 @@ export function createExecRunner({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   run = createCommandRunner(),
 }: ExecRunnerOptions = {}): GormcsvRunner {
-  return (args) => run(binary, args, { timeoutMs });
+  return (args, options) => run(binary, args, { timeoutMs, ...options });
 }
 
 export function errorMessage(err: unknown): string {

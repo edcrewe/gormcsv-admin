@@ -26,6 +26,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/tables/tables-page').then((m) => m.TablesPage),
   },
   {
+    // The same page with one table selected; its name binds to the page's name input.
+    path: 'tables/:name',
+    title: 'Tables | gormcsv Admin',
+    loadComponent: () => import('./features/tables/tables-page').then((m) => m.TablesPage),
+  },
+  {
     path: 'history',
     title: 'Import history | gormcsv Admin',
     loadComponent: () => import('./features/history/history-page').then((m) => m.HistoryPage),

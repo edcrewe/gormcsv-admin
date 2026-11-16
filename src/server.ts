@@ -34,20 +34,22 @@ const env = process.env;
 const run = createCommandRunner();
 const workspaceDir =
   env['GORMCSV_WORKSPACE'] || join(homedir(), '.local', 'share', 'gormcsv-admin');
+// Throws on a bad GORMCSV_DB_DRIVER/GORMCSV_DSN, so misconfiguration stops the server at startup.
+const database = databaseFromEnv(env, join(workspaceDir, 'gormcsv.db'));
 const workspace = new ModelWorkspace({
   dir: workspaceDir,
   srcDir: env['GORMCSV_SRC'] || join(workspaceDir, 'gormcsv-src'),
   run,
   gormcsvBin: env['GORMCSV_BIN'],
   goBin: env['GO_BIN'],
-  // Throws on a bad GORMCSV_DB_DRIVER/GORMCSV_DSN, so misconfiguration stops the server at startup.
-  database: databaseFromEnv(env, join(workspaceDir, 'gormcsv.db')),
+  database,
 });
 app.use(
   '/api',
   createApiRouter({
     runner: createExecRunner({ binary: env['GORMCSV_BIN'], run }),
     workspace,
+    database,
   }),
 );
 

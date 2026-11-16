@@ -121,6 +121,33 @@ export interface ImportResult {
   database: DatabaseInfo;
 }
 
+/** A column as the import database reports it (from `gormcsv tables --json`). */
+export interface TableColumn {
+  name: string;
+  /** The database's own type, such as VARCHAR(64) or bigint. */
+  type: string;
+  nullable: boolean;
+  primaryKey: boolean;
+}
+
+export interface TableIndex {
+  name: string;
+  columns: string[];
+  unique: boolean;
+}
+
+export interface TableInfo {
+  name: string;
+  rows: number;
+  columns: TableColumn[];
+  indexes: TableIndex[];
+}
+
+export interface TablesResponse {
+  database: DatabaseInfo;
+  tables: TableInfo[];
+}
+
 export function isApiError(value: unknown): value is ApiError {
   return (
     typeof value === 'object' &&

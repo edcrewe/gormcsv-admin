@@ -13,7 +13,9 @@ import type { HealthStatus } from '../shared/api-types';
 import { CommandError, GormcsvRunner, errorMessage } from './commands';
 import { createImportRouter } from './import-route';
 import { InspectDeps, createInspectRouter } from './inspect';
+import { DatabaseConfig } from './database';
 import { createModelsRouter } from './models';
+import { createTablesRouter } from './tables';
 import { UploadOptions } from './upload';
 import { ModelWorkspace } from './workspace';
 
@@ -23,9 +25,17 @@ export interface ApiDeps {
   /** Enables /api/models and /api/import when provided. */
   workspace?: ModelWorkspace;
   upload?: UploadOptions;
+  /** Enables /api/tables when provided. */
+  database?: DatabaseConfig;
 }
 
-export function createApiRouter({ runner, inspect = {}, workspace, upload = {} }: ApiDeps): Router {
+export function createApiRouter({
+  runner,
+  inspect = {},
+  workspace,
+  upload = {},
+  database,
+}: ApiDeps): Router {
   const router = Router();
 
   // `gormcsv version` prints e.g. "gormcsv v0.3.1-3-g4446d92". Older binaries without the command
@@ -49,6 +59,9 @@ export function createApiRouter({ runner, inspect = {}, workspace, upload = {} }
   if (workspace) {
     router.use('/models', createModelsRouter({ workspace, ...upload }));
     router.use('/import', createImportRouter({ workspace }));
+  }
+  if (database) {
+    router.use('/tables', createTablesRouter({ runner, database }));
   }
 
   // Unknown API paths must not fall through to the Angular renderer.

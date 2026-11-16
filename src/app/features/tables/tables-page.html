@@ -1,0 +1,108 @@
+<div class="heading">
+  <h2>Tables</h2>
+  <button matButton type="button" [disabled]="data.isLoading()" (click)="reload()">
+    <mat-icon aria-hidden="true">refresh</mat-icon>
+    Refresh
+  </button>
+</div>
+
+@if (response(); as response) {
+  <p>
+    Tables in {{ response.database.driver }} <code>{{ response.database.dsn }}</code>.
+  </p>
+}
+
+@if (data.isLoading()) {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading tables" />
+}
+
+@if (loadError(); as message) {
+  <div class="error" role="alert">
+    <mat-icon aria-hidden="true">error</mat-icon>
+    {{ message }}
+  </div>
+}
+
+@if (response()) {
+  @if (tables().length === 0) {
+    <p>No tables yet. Populate one from the <a routerLink="/models">Models</a> page.</p>
+  } @else {
+    <div class="layout">
+      <nav aria-label="Tables">
+        <mat-nav-list>
+          @for (table of tables(); track table.name) {
+            <a
+              mat-list-item
+              [routerLink]="['/tables', table.name]"
+              routerLinkActive
+              #rla="routerLinkActive"
+              ariaCurrentWhenActive="page"
+              [activated]="rla.isActive"
+            >
+              <span matListItemTitle>{{ table.name }}</span>
+              <span matListItemLine>{{ table.rows }} {{ table.rows === 1 ? 'row' : 'rows' }}</span>
+            </a>
+          }
+        </mat-nav-list>
+      </nav>
+
+      <section class="detail" aria-live="polite">
+        @if (selected(); as table) {
+          <h3>{{ table.name }}</h3>
+          <p>
+            {{ table.rows }} {{ table.rows === 1 ? 'row' : 'rows' }}, {{ table.columns.length }}
+            columns.
+          </p>
+          <table mat-table [dataSource]="table.columns">
+            <caption>
+              Columns of
+              {{
+                table.name
+              }}, in table order
+            </caption>
+            <ng-container matColumnDef="name">
+              <th mat-header-cell *matHeaderCellDef scope="col">Column</th>
+              <td mat-cell *matCellDef="let column">{{ column.name }}</td>
+            </ng-container>
+            <ng-container matColumnDef="type">
+              <th mat-header-cell *matHeaderCellDef scope="col">Type</th>
+              <td mat-cell *matCellDef="let column">
+                <code>{{ column.type }}</code>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="nullable">
+              <th mat-header-cell *matHeaderCellDef scope="col">Nullable</th>
+              <td mat-cell *matCellDef="let column">{{ column.nullable ? 'yes' : 'no' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="primaryKey">
+              <th mat-header-cell *matHeaderCellDef scope="col">Primary key</th>
+              <td mat-cell *matCellDef="let column">{{ column.primaryKey ? 'yes' : '' }}</td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="columns"></tr>
+            <tr mat-row *matRowDef="let row; columns: columns"></tr>
+          </table>
+
+          <h4>Indexes</h4>
+          @if (table.indexes.length) {
+            <ul class="indexes">
+              @for (index of table.indexes; track index.name) {
+                <li>
+                  <code>{{ index.name }}</code> on {{ index.columns.join(', ') }}
+                  @if (index.unique) {
+                    <strong>(unique)</strong>
+                  }
+                </li>
+              }
+            </ul>
+          } @else {
+            <p>None.</p>
+          }
+        } @else if (name(); as missing) {
+          <p class="error" role="alert">There is no table named {{ missing }}.</p>
+        } @else {
+          <p>Choose a table to see its columns and indexes.</p>
+        }
+      </section>
+    </div>
+  }
+}

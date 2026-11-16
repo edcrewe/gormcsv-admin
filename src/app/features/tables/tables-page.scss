@@ -1,0 +1,46 @@
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+.layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+nav {
+  flex: 0 0 220px;
+  border-right: 1px solid var(--mat-sys-outline-variant);
+}
+
+.detail {
+  flex: 1 1 auto;
+  min-width: 0;
+
+  h3 {
+    margin-top: 8px;
+  }
+}
+
+table {
+  max-width: 720px;
+}
+
+caption {
+  text-align: left;
+  padding: 8px 0;
+  font: var(--mat-sys-title-small);
+}

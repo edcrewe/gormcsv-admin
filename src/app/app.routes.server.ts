@@ -12,7 +12,9 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'import', renderMode: RenderMode.Prerender },
   // Shows live workspace data from /api, which does not exist at build time, so render in the browser.
   { path: 'models', renderMode: RenderMode.Client },
-  { path: 'tables', renderMode: RenderMode.Prerender },
+  // Live database contents, so rendered in the browser like Models.
+  { path: 'tables', renderMode: RenderMode.Client },
+  { path: 'tables/:name', renderMode: RenderMode.Client },
   { path: 'history', renderMode: RenderMode.Prerender },
   // Unknown paths can't be prerendered, so render the not-found page on request with a real 404.
   { path: '**', renderMode: RenderMode.Server, status: 404 },
