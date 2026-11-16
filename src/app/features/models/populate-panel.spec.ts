@@ -13,7 +13,7 @@ const PARTIAL: ImportResult = {
   ],
   totals: { inserted: 251, duplicates: 0, rejected: 1 },
   errors: ['Country.csv row 148: record on line 148: wrong number of fields'],
-  database: '/ws/gormcsv.db',
+  database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
 };
 
 describe('PopulatePanel', () => {
@@ -151,7 +151,7 @@ describe('PopulatePanel', () => {
     expect(summary.textContent).toContain('Partly imported');
     expect(summary.textContent).toContain('251 rows inserted');
     expect(summary.textContent).toContain('1 rejected');
-    expect(summary.textContent).toContain('/ws/gormcsv.db');
+    expect(summary.textContent?.replace(/\s+/g, ' ')).toContain('into sqlite /ws/gormcsv.db.');
     const rows = Array.from(el.querySelectorAll('tbody tr')).map((tr) =>
       Array.from(tr.querySelectorAll('td')).map((td) => td.textContent?.trim()),
     );

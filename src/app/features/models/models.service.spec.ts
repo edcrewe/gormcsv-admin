@@ -8,7 +8,14 @@ import { ModelsService, ModelsApiError } from './models.service';
 const RESULT: RegisterResult = {
   file: 'TestTypes.csv',
   warnings: [],
-  status: { ready: true, files: ['TestTypes.csv'], models: [], binary: null, duplicates: {} },
+  status: {
+    ready: true,
+    files: ['TestTypes.csv'],
+    models: [],
+    binary: null,
+    duplicates: {},
+    database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
+  },
 };
 
 describe('ModelsService', () => {
@@ -71,7 +78,7 @@ describe('ModelsService', () => {
       files: [{ model: 'TestTypes', inserted: 6, duplicates: 0, rejected: 0 }],
       totals: { inserted: 6, duplicates: 0, rejected: 0 },
       errors: [],
-      database: '/ws/gormcsv.db',
+      database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
     };
     const result = firstValueFrom(
       service.populate({ file: 'TestTypes.csv', batchSize: 100, workers: 1 }),

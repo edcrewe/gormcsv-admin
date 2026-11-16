@@ -8,25 +8,23 @@ The Angular SSR Express server (`src/server.ts`) is a local bridge to the `gormc
 also an Angular learning exercise, so features are added one step at a time. Each step is a
 `feat:` commit then a `test:` commit, and stops for review before the next.
 
-## Status (2026-11-15)
+## Status (2026-11-16)
 
-Phases 0 to 4 are done, plus two follow-ups: the admin reads gormcsv's `--json` reports instead
-of parsing its text, and registering a model sets its duplicate rule (`--key` or `--dedupe`). 86
-Angular specs and 125 API tests pass (131 including the real-CLI and real-build integration
-tests).
+Phases 0 to 5 are done: 87 Angular specs and 150 API tests pass (157 including the real-CLI,
+real-build and real-Postgres integration tests). CI runs them all, with a Postgres service.
 
-**Before pushing the admin**, merge gormcsv branch `dedupe-and-fixes` (through `5d80040`) to
-master and install the new binary. The admin needs `--json`, `--key` and `--dedupe`, and CI's
-integration job builds gormcsv master.
+**Open gormcsv branch `gorm-logs-to-stderr` (`abfe7ac`)**: GORM logged connection errors and slow
+queries to stdout, corrupting `--json`. The admin already falls back to the CLI's error message
+when that happens, but a slow query during a successful import would still break the report until
+this is merged and the workspace binary rebuilt.
 
-**Next: Phase 5, connection config.** Intended shape:
+**Next: Phase 6, schema browser.** Intended shape:
 
-- `GORMCSV_DB_DRIVER` (sqlite, postgres or mysql) and `GORMCSV_DSN`, read by server.ts and passed
-  to the workspace. The default stays the workspace `gormcsv.db`.
-- The browser never sends a DSN. `GET /api/database` returns the driver and the DSN with any
-  password redacted, and the Models page and import summary show those.
-- Validate the driver against gormcsv's list. Test redaction for URL-style and key=value
-  Postgres DSNs and MySQL `user:pass@tcp(...)` DSNs.
+- `GET /api/tables` and `GET /api/tables/:name/schema` for the import database.
+- SQLite first, read directly from Node (e.g. better-sqlite3, read-only); Postgres and MySQL
+  later, or through a gormcsv command if that avoids three Node drivers.
+- Sidebar table list and a column/type detail view at `/tables/:name`, rendered client-side.
+- Table names validated against the database's own catalogue before use.
 
 Notes for picking up:
 
@@ -136,10 +134,14 @@ Project-specific:
 - Populate tables panel on the Models page: Signal Forms with Material `mat-error`, a results
   `mat-table`, and the error list.
 
-### Phase 5: Connection config
+### Phase 5: Connection config (done)
 
-- Server-side driver and DSN from environment variables, SQLite first.
-- Shown read-only in the UI.
+- `GORMCSV_DB_DRIVER` and `GORMCSV_DSN` are read at startup and passed to importcsv; a bad
+  combination stops the server.
+- The UI gets the DSN with its password masked (Postgres URL and key=value, MySQL, query
+  parameters), shown on the Models page and in import summaries. Errors are scrubbed too.
+- The connection details are part of `GET /api/models` rather than a separate
+  `/api/database`, since only the Models page needs them so far.
 
 ### Phase 6: Schema browser
 

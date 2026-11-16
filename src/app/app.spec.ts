@@ -16,6 +16,7 @@ const EMPTY_WORKSPACE: WorkspaceStatus = {
   models: [],
   binary: null,
   duplicates: {},
+  database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
 };
 
 describe('App shell', () => {

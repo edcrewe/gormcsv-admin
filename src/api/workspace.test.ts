@@ -173,6 +173,7 @@ describe('ModelWorkspace.status', () => {
       models: [],
       binary: null,
       duplicates: {},
+      database: { driver: 'sqlite', dsn: join(dir, 'gormcsv.db') },
     });
   });
 
@@ -187,6 +188,7 @@ describe('ModelWorkspace.status', () => {
       models: [],
       binary: null,
       duplicates: {},
+      database: { driver: 'sqlite', dsn: join(dir, 'gormcsv.db') },
     });
   });
 
@@ -468,7 +470,7 @@ describe('ModelWorkspace.populate', () => {
       ],
       totals: { inserted: 4, duplicates: 0, rejected: 0 },
       errors: [],
-      database: join(dir, 'gormcsv.db'),
+      database: { driver: 'sqlite', dsn: join(dir, 'gormcsv.db') },
     });
   });
 
@@ -481,20 +483,59 @@ describe('ModelWorkspace.populate', () => {
     expect(result.files.map((f) => f.model)).toEqual(['Users']);
   });
 
-  it('writes to a configured database path', async () => {
+  it('imports into the configured database, showing it with the password masked', async () => {
     const tools = fakeTools();
-    const workspace = new ModelWorkspace({
-      dir,
-      srcDir,
-      run: tools.run,
-      databasePath: '/data/x.db',
-    });
+    const database = {
+      driver: 'postgres' as const,
+      dsn: 'postgres://ed:s3cret@db:5432/admin?sslmode=disable',
+    };
+    const workspace = new ModelWorkspace({ dir, srcDir, run: tools.run, database });
     await workspace.register(await upload('users.csv'), 'users.csv');
 
     const result = await workspace.populate(OPTIONS);
 
-    expect(tools.calls.at(-1)!.args).toContain('/data/x.db');
-    expect(result.database).toBe('/data/x.db');
+    const args = tools.calls.at(-1)!.args;
+    expect(args[args.indexOf('--driver') + 1]).toBe('postgres');
+    expect(args[args.indexOf('--dsn') + 1]).toBe(database.dsn);
+    const masked = { driver: 'postgres', dsn: 'postgres://ed:***@db:5432/admin?sslmode=disable' };
+    expect(result.database).toEqual(masked);
+    expect((await workspace.status()).database).toEqual(masked);
+  });
+
+  it('hides the DSN password in import errors', async () => {
+    const database = { driver: 'mysql' as const, dsn: 'ed:hunter2@tcp(db:3306)/admin' };
+    const tools = fakeTools({
+      importcsv: async () => {
+        throw new CommandError('exit 1', 'Error: open mysql database: ed:hunter2@tcp refused\n', 1);
+      },
+    });
+    const workspace = new ModelWorkspace({ dir, srcDir, run: tools.run, database });
+    await workspace.register(await upload('users.csv'), 'users.csv');
+
+    const err = await workspace.populate(OPTIONS).catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ message: 'open mysql database: ed:***@tcp refused' });
+  });
+
+  it('reports the CLI error when a failing importcsv printed log text instead of a report', async () => {
+    const { workspace } = await built({
+      importcsv: async () => {
+        throw new CommandError(
+          'exit 1',
+          'Error: open postgres database: password authentication failed\n',
+          1,
+          false,
+          '\n2026/11/16 [error] failed to initialize database\n',
+        );
+      },
+    });
+
+    const err = await workspace.populate(OPTIONS).catch((e: unknown) => e);
+
+    expect(err).toMatchObject({
+      kind: 'failed',
+      message: 'open postgres database: password authentication failed',
+    });
   });
 
   it('returns a partial result, with workspace paths hidden, when importcsv rejects rows', async () => {

@@ -4,10 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { createCommandRunner } from './commands';
+import { databaseFromEnv } from './database';
 import { ModelWorkspace } from './workspace';
 
 const exec = promisify(execFile);
 const repo = process.env['GORMCSV_SRC_REPO'];
+const postgresDsn = process.env['GORMCSV_TEST_POSTGRES_DSN'];
 
 // Opt-in, slow: builds a real gormcsv from a detached worktree of GORMCSV_SRC_REPO.
 // Run with `GORMCSV_SRC_REPO=~/projects/gormcsv npm run test:server:it`.
@@ -77,5 +79,29 @@ describe.skipIf(!process.env['GORMCSV_IT'] || !repo)(
         expect(stdout).toBe('TestTypes: inserted 6, skipped 0 duplicates, rejected 0\n');
       },
     );
+
+    // Also opt-in: a reachable Postgres, e.g. the CI service container. Runs after the build above.
+    it.skipIf(!postgresDsn)('imports into Postgres with the same binary', async () => {
+      const database = databaseFromEnv(
+        { GORMCSV_DB_DRIVER: 'postgres', GORMCSV_DSN: postgresDsn },
+        '',
+      );
+      const onPostgres = new ModelWorkspace({
+        dir: join(root, 'workspace'),
+        srcDir: join(root, 'src'),
+        run: createCommandRunner(),
+        database,
+      });
+
+      // The database may already hold rows from an earlier run, so assert what holds either way:
+      // every row is loaded once, and importing again skips all of them.
+      const first = await onPostgres.populate({ batchSize: 100, workers: 4 });
+      expect(first.totals.inserted + first.totals.duplicates).toBe(251);
+      expect(first.totals.rejected).toBe(1);
+      const again = await onPostgres.populate({ batchSize: 100, workers: 4 });
+      expect(again.totals).toEqual({ inserted: 0, duplicates: 251, rejected: 1 });
+      expect(again.database.driver).toBe('postgres');
+      expect(again.database.dsn).not.toContain(new URL(postgresDsn!).password || '\0');
+    });
   },
 );

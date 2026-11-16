@@ -15,6 +15,7 @@ const STATUS: WorkspaceStatus = {
   models: [{ name: 'TestTypes', key: 'testtypes', fields: [{ name: 'Wordcol', type: 'string' }] }],
   binary: { version: 'v0.3.1-4-g5ad9de4-dirty', builtAt: '2026-11-13T11:10:04.849Z' },
   duplicates: {},
+  database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
 };
 
 let tempRoot: string;

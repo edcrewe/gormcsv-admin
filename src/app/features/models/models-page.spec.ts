@@ -15,6 +15,7 @@ const BUILT: WorkspaceStatus = {
   ],
   binary: { version: 'v0.3.1-4-g5ad9de4-dirty', builtAt: '2026-11-13T11:10:04.849Z' },
   duplicates: { country: { mode: 'key', columns: ['code'] } },
+  database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
 };
 
 describe('ModelsPage', () => {
@@ -75,6 +76,19 @@ describe('ModelsPage', () => {
     await expectNoAxeViolations(el);
   });
 
+  it('shows a configured database with its password masked', async () => {
+    const { el } = await renderWith((req) =>
+      req.flush({
+        ...BUILT,
+        database: { driver: 'postgres', dsn: 'postgres://ed:***@db:5432/admin' },
+      }),
+    );
+
+    expect(el.querySelector('.database')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Imports go to postgres postgres://ed:***@db:5432/admin.',
+    );
+  });
+
   it('uses the singular for one model', async () => {
     const { el } = await renderWith((req) => req.flush({ ...BUILT, models: [BUILT.models[0]] }));
 
@@ -83,10 +97,20 @@ describe('ModelsPage', () => {
 
   it('explains an empty workspace and links to Import', async () => {
     const { el } = await renderWith((req) =>
-      req.flush({ ready: true, files: [], models: [], binary: null, duplicates: {} }),
+      req.flush({
+        ready: true,
+        files: [],
+        models: [],
+        binary: null,
+        duplicates: {},
+        database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
+      }),
     );
 
     expect(el.textContent).toContain('Not built yet. Register a model to build it.');
+    expect(el.querySelector('.database')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Imports go to sqlite /ws/gormcsv.db.',
+    );
     expect(el.querySelector('app-populate-panel')).toBeNull();
     expect(el.querySelector('#registered-heading')).toBeNull();
     expect(el.querySelector('a[href="/import"]')).not.toBeNull();
@@ -101,6 +125,7 @@ describe('ModelsPage', () => {
         models: [],
         binary: null,
         duplicates: {},
+        database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
       }),
     );
 
@@ -124,7 +149,14 @@ describe('ModelsPage', () => {
 
   it('reloads on Refresh', async () => {
     const { fixture, el } = await renderWith((req) =>
-      req.flush({ ready: true, files: [], models: [], binary: null, duplicates: {} }),
+      req.flush({
+        ready: true,
+        files: [],
+        models: [],
+        binary: null,
+        duplicates: {},
+        database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
+      }),
     );
 
     Array.from(el.querySelectorAll('button'))

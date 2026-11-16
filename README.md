@@ -37,7 +37,8 @@ The workspace dir then holds:
 - `gormcsv-src/`, the checkout
 - `csv/`, the registered CSVs, one per model
 - `bin/gormcsv`, the built binary
-- `gormcsv.db`, the SQLite database that **Populate tables** on the Models page imports into
+- `gormcsv.db`, the default SQLite database that **Populate tables** on the Models page imports
+  into (see [Import database](#import-database))
 - `duplicates.json`, each model's duplicate rule: when registering, choose whether a row already
   in the table is imported again, skipped when chosen key columns match (gormcsv `--key`), or
   skipped when the whole row matches (`--dedupe`). Change a rule only while the model's table is
@@ -76,6 +77,25 @@ npm run serve:ssr:gormcsv-admin  # http://127.0.0.1:4000
 | `GORMCSV_WORKSPACE` | `~/.local/share/gormcsv-admin`   | Model workspace dir                                  |
 | `GORMCSV_SRC`       | `$GORMCSV_WORKSPACE/gormcsv-src` | gormcsv checkout the admin builds                    |
 | `GO_BIN`            | `go`                             | Go toolchain used for builds                         |
+| `GORMCSV_DB_DRIVER` | `sqlite`                         | Import database: `sqlite`, `postgres` or `mysql`     |
+| `GORMCSV_DSN`       | `$GORMCSV_WORKSPACE/gormcsv.db`  | Connection string; required for postgres and mysql   |
+
+### Import database
+
+Imports go to the database set by `GORMCSV_DB_DRIVER` and `GORMCSV_DSN`, read once at startup;
+a bad combination stops the server. The browser never sends or sees a DSN: the Models page and
+the import summary show it with the password replaced by `***`. The DSN syntax is the GORM
+driver's:
+
+```bash
+GORMCSV_DB_DRIVER=postgres GORMCSV_DSN='postgres://user:pass@localhost:5432/db?sslmode=disable'
+GORMCSV_DB_DRIVER=postgres GORMCSV_DSN='host=localhost user=u password=p dbname=db sslmode=disable'
+GORMCSV_DB_DRIVER=mysql GORMCSV_DSN='user:pass@tcp(localhost:3306)/db?parseTime=true'
+```
+
+URL-encode special characters in a URL-style password (`@` as `%40`). The admin passes the DSN
+to gormcsv as `--dsn`, so it is visible to other local users in the process list while an import
+runs; keep the admin on a single-user machine, or use a database account limited to this job.
 
 SSR only answers requests for `localhost` and `127.0.0.1` (`security.allowedHosts` in
 `angular.json`). Add a host there if you serve it under another name.
@@ -105,6 +125,17 @@ temporary detached worktree of that repo, then imports with the result:
 ```bash
 GORMCSV_SRC_REPO=~/projects/gormcsv npm run test:server:it
 ```
+
+Set `GORMCSV_TEST_POSTGRES_DSN` as well to import into a real Postgres. A throwaway one in Docker:
+
+```bash
+docker run -d --name gormcsv-pg -e POSTGRES_USER=ed -e POSTGRES_PASSWORD=pw -e POSTGRES_DB=admin \
+  -p 55432:5432 postgres:15
+GORMCSV_TEST_POSTGRES_DSN='postgres://ed:pw@localhost:55432/admin?sslmode=disable' \
+  GORMCSV_SRC_REPO=~/projects/gormcsv npm run test:server:it
+```
+
+CI runs it against a Postgres service container.
 
 `fixtures/` holds test data:
 

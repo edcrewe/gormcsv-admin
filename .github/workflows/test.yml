@@ -43,6 +43,21 @@ jobs:
   integration:
     name: API tests against the real gormcsv
     runs-on: ubuntu-24.04
+    services:
+      # For the workspace integration test that imports into Postgres.
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: gormcsv
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: gormcsv
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gormcsv -d gormcsv"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -82,4 +97,5 @@ jobs:
           GORMCSV_BIN: ${{ github.workspace }}/gormcsv-src/gormcsv
           # Lets the workspace integration test build gormcsv from a worktree of this clone.
           GORMCSV_SRC_REPO: ${{ github.workspace }}/gormcsv-src
+          GORMCSV_TEST_POSTGRES_DSN: postgres://gormcsv:ci-only-password@localhost:5432/gormcsv?sslmode=disable
         run: npm run test:server:it

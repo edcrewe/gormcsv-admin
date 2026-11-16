@@ -11,7 +11,7 @@ const RESULT: ImportResult = {
   files: [{ model: 'Country', inserted: 245, duplicates: 0, rejected: 1 }],
   totals: { inserted: 245, duplicates: 0, rejected: 1 },
   errors: ['Country.csv row 148: record on line 148: wrong number of fields'],
-  database: '/ws/gormcsv.db',
+  database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
 };
 
 function appWith(workspace: Partial<ModelWorkspace>) {
