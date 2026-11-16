@@ -12,7 +12,7 @@ for coding conventions.
 
 - Node.js 22+ and npm
 - `gormcsv` on your `PATH`, or set `GORMCSV_BIN=/path/to/gormcsv`. It must have the `version`
-  command, `--json` output and the `tables` command (gormcsv `90dffb7` or later). The workspace
+  command, `--json` output and the `tables` and `rows` commands (gormcsv `e44e9ff` or later). The workspace
   checkout needs `6678dfb` or later, which reads the import DSN from `GORMCSV_DSN`. Without `version` the header badge
   shows "gormcsv CLI not available or too old"; without `--json`, inspecting says gormcsv "may be
   too old".
@@ -87,6 +87,12 @@ The **Tables** page lists the import database's tables with their row counts. Ch
 to `/tables/<name>`, to see its columns in table order with their database types, and its
 indexes, including the unique ones a duplicate rule creates. It runs `gormcsv tables --json`, so
 it works for SQLite, Postgres and MySQL alike.
+
+Its **Rows** tab pages through the table, sorted by the primary key until you click a column
+header. The page, page size and sort are kept in the URL (`?view=rows&page=2&size=50&sort=name`),
+so a view can be bookmarked or shared, and Back steps through earlier pages. Paging and sorting
+run in the database through `gormcsv rows`, which checks the table and column names against the
+database's own catalogue.
 
 ### Import database
 

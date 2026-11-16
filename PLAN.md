@@ -10,22 +10,18 @@ also an Angular learning exercise, so features are added one step at a time. Eac
 
 ## Status (2026-11-16)
 
-Phases 0 to 6 are done: 97 Angular specs and 166 API tests pass (176 including the real-CLI,
+Phases 0 to 7 are done: 113 Angular specs and 188 API tests pass (199 including the real-CLI,
 real-build and real-Postgres integration tests).
 
-**Open gormcsv branch `tables-command` (`90dffb7`)**: adds `gormcsv tables [--json]`, which the
-Tables page needs. Merge it and install the new binary before pushing the admin; CI builds gormcsv
-master.
+**Open gormcsv branch `rows-command` (`e44e9ff`)**: adds `gormcsv rows`, which the Rows tab needs.
+Merge it and install the new binary before pushing the admin; CI builds gormcsv master.
 
-**Next: Phase 7, record browser.** Intended shape:
+**Next: Phase 8, import history.** Intended shape:
 
-- `gormcsv rows --table <name> --json --limit N --offset N [--order column] [--desc]`, so paging
-  and sorting run in the database for all three drivers. gormcsv checks the table and column
-  against the catalogue and quotes them, so names never reach SQL unchecked.
-- `GET /api/tables/:name/rows?page&size&sort&dir` validates the name against `/api/tables`
-  before calling it.
-- `/tables/:name` gains a rows tab: `mat-table` with `mat-paginator` and `mat-sort`, with the
-  page and sort kept in the URL query.
+- Record each registration and import (time, file, model, counts, outcome, errors) in an append-only
+  `history.jsonl` in the workspace, since the admin needs no database of its own for this.
+- `GET /api/history?limit&offset` newest first, and the `/history` page with a `mat-table`, reusing
+  the paging pattern from the Rows tab (state in the URL, httpResource from a computed URL).
 
 Notes for picking up:
 
@@ -152,10 +148,13 @@ Project-specific:
 - `/tables` lists tables with row counts. `/tables/:name` shows columns in table order and
   indexes. The route parameter binds to a component input.
 
-### Phase 7: Record browser
+### Phase 7: Record browser (done)
 
-- Paginated, sortable rows in `mat-table` with paginator and sort.
-- Identifiers validated against the schema. Includes injection tests.
+- A new `gormcsv rows --json` pages and sorts in the database. The table and sort column are
+  checked against the catalogue, so SQL in a name is rejected (tested in Go and through the API).
+- `GET /api/tables/:name/rows` validates the paging values. The Rows tab on `/tables/:name`
+  uses `mat-table`, `mat-sort` and `mat-paginator`, with the page, size and sort in the URL query
+  bound to inputs.
 
 ### Phase 8: Import history
 

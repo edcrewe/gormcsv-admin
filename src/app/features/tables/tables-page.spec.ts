@@ -112,6 +112,56 @@ describe('TablesPage', () => {
     await expectNoAxeViolations(el);
   });
 
+  it('shows the Columns tab by default and offers Rows', async () => {
+    const { el } = await render('countries');
+
+    const tabs = Array.from(el.querySelectorAll('nav[aria-label="Table views"] a'));
+    expect(tabs.map((a) => text(a))).toEqual(['Columns', 'Rows']);
+    expect(tabs[0].classList).toContain('mdc-tab--active');
+    expect(tabs[1].getAttribute('href')).toBe('/?view=rows');
+    expect(el.querySelector('app-table-rows')).toBeNull();
+    expect(el.querySelector('.detail table caption')).not.toBeNull();
+  });
+
+  it('shows the rows of the table when view is rows, passing paging and sort through', async () => {
+    const fixture = TestBed.createComponent(TablesPage);
+    for (const [input, value] of Object.entries({
+      name: 'countries',
+      view: 'rows',
+      page: '2',
+      size: '10',
+      sort: 'name',
+      dir: 'desc',
+    })) {
+      fixture.componentRef.setInput(input, value);
+    }
+    fixture.detectChanges();
+    await Promise.resolve();
+    httpTesting.expectOne('/api/tables').flush(DATA);
+    // The rows view then loads its page, which keeps the fixture unstable until answered.
+    const rowRequests: string[] = [];
+    const stable = fixture.whenStable();
+    for (let i = 0; i < 5; i++) {
+      await new Promise((resolve) => setTimeout(resolve));
+      httpTesting
+        .match((r) => r.url.includes('/rows'))
+        .forEach((req) => {
+          rowRequests.push(req.request.urlWithParams);
+          req.flush({ table: 'countries', columns: ['id'], rows: [], total: 245 });
+        });
+    }
+    await stable;
+
+    expect(rowRequests).toEqual([
+      '/api/tables/countries/rows?limit=10&offset=20&sort=name&dir=desc',
+    ]);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(
+      el.querySelector('nav[aria-label="Table views"] a.mdc-tab--active')?.textContent?.trim(),
+    ).toBe('Rows');
+    expect(el.querySelector('app-table-rows')).not.toBeNull();
+  });
+
   it('says when a table has no indexes', async () => {
     const { el } = await render('notes');
 

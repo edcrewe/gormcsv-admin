@@ -53,6 +53,25 @@ describe.skipIf(!process.env['GORMCSV_IT'])('GET /api/tables with the real gormc
     });
   });
 
+  it('pages and sorts the rows of a table', async () => {
+    const dsn = join(root, 'tables.db');
+    const app = appFor({ GORMCSV_DSN: dsn });
+
+    const res = await request(app).get('/api/tables/test_types/rows?limit=2&offset=1&sort=intcol');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ table: 'test_types', total: 6, limit: 2, offset: 1 });
+    expect(res.body.order).toBe('intcol');
+    const intcol = res.body.columns.indexOf('intcol');
+    const values = res.body.rows.map((row: unknown[]) => row[intcol] as number);
+    expect(values).toEqual([...values].sort((a, b) => a - b));
+
+    const missing = await request(app).get('/api/tables/missing/rows');
+    expect(missing.status).toBe(404);
+    const badColumn = await request(app).get('/api/tables/test_types/rows?sort=nope');
+    expect(badColumn.status).toBe(400);
+  });
+
   it('reports an empty database as no tables', async () => {
     const res = await request(appFor({ GORMCSV_DSN: join(root, 'empty.db') })).get('/api/tables');
 
@@ -74,5 +93,12 @@ describe.skipIf(!process.env['GORMCSV_IT'])('GET /api/tables with the real gormc
     const testTypes = res.body.tables.find((t: { name: string }) => t.name === 'test_types');
     expect(testTypes.rows).toBeGreaterThanOrEqual(6);
     expect(testTypes.columns[0]).toMatchObject({ name: 'id', type: 'bigint', primaryKey: true });
+
+    const rows = await request(
+      appFor({ GORMCSV_DB_DRIVER: 'postgres', GORMCSV_DSN: postgresDsn }),
+    ).get('/api/tables/test_types/rows?limit=3&sort=wordcol&dir=desc');
+    expect(rows.status).toBe(200);
+    expect(rows.body).toMatchObject({ order: 'wordcol', desc: true, limit: 3 });
+    expect(rows.body.rows).toHaveLength(3);
   });
 });
