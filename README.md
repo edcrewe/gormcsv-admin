@@ -12,8 +12,8 @@ for coding conventions.
 
 - Node.js 22+ and npm
 - `gormcsv` on your `PATH`, or set `GORMCSV_BIN=/path/to/gormcsv`. It must have the `version`
-  command and `--json` output (gormcsv `5d80040` or later). The workspace checkout needs
-  `6678dfb` or later, which reads the import DSN from `GORMCSV_DSN`. Without `version` the header badge
+  command, `--json` output and the `tables` command (gormcsv `90dffb7` or later). The workspace
+  checkout needs `6678dfb` or later, which reads the import DSN from `GORMCSV_DSN`. Without `version` the header badge
   shows "gormcsv CLI not available or too old"; without `--json`, inspecting says gormcsv "may be
   too old".
 
@@ -80,6 +80,13 @@ npm run serve:ssr:gormcsv-admin  # http://127.0.0.1:4000
 | `GO_BIN`            | `go`                             | Go toolchain used for builds                         |
 | `GORMCSV_DB_DRIVER` | `sqlite`                         | Import database: `sqlite`, `postgres` or `mysql`     |
 | `GORMCSV_DSN`       | `$GORMCSV_WORKSPACE/gormcsv.db`  | Connection string; required for postgres and mysql   |
+
+### Tables
+
+The **Tables** page lists the import database's tables with their row counts. Choose one, or go
+to `/tables/<name>`, to see its columns in table order with their database types, and its
+indexes, including the unique ones a duplicate rule creates. It runs `gormcsv tables --json`, so
+it works for SQLite, Postgres and MySQL alike.
 
 ### Import database
 

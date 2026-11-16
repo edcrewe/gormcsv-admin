@@ -12,11 +12,14 @@ import { routes } from './app.routes';
 import { provideClientHydration } from '@angular/platform-browser';
 import { provideHttpClient } from '@angular/common/http';
 
+/** The app's router, exported so the shell tests run it exactly as configured here. */
+// Route parameters such as /tables/:name arrive as component inputs.
+export const routerProviders = provideRouter(routes, withComponentInputBinding());
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    // Route parameters such as /tables/:name arrive as component inputs.
-    provideRouter(routes, withComponentInputBinding()),
+    routerProviders,
     provideClientHydration(),
     provideHttpClient(),
   ],

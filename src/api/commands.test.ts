@@ -112,6 +112,22 @@ describe('createCommandRunner', () => {
 });
 
 describe('CommandError.cliMessage', () => {
+  it("prefers gormcsv's Error: line over GORM log lines printed before it", () => {
+    const stderr =
+      '\n2026/11/16 16:13:04 importcsv.go:131\n[error] failed to initialize database\n' +
+      'Error: open postgres database: auth failed\n';
+
+    expect(new CommandError('exit 1', stderr, 1).cliMessage).toBe(
+      'open postgres database: auth failed',
+    );
+  });
+
+  it('uses the first non-empty line when there is no Error: line', () => {
+    expect(new CommandError('exit 1', '\n  something broke\nmore\n', 1).cliMessage).toBe(
+      'something broke',
+    );
+  });
+
   it('falls back to the error message when stderr is empty', () => {
     expect(new CommandError('spawn failed').cliMessage).toBe('spawn failed');
   });

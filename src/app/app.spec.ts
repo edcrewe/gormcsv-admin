@@ -1,14 +1,14 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Title } from '@angular/platform-browser';
-import { Router, provideRouter } from '@angular/router';
+import { Router } from '@angular/router';
 import { MatSidenav } from '@angular/material/sidenav';
 import { By } from '@angular/platform-browser';
 import { App, NAV_ITEMS } from './app';
-import { routes } from './app.routes';
+import { routerProviders } from './app.config';
 import { expectNoAxeViolations } from '../testing/axe';
-import { WorkspaceStatus } from '../shared/api-types';
+import { TablesResponse, WorkspaceStatus } from '../shared/api-types';
 
 const EMPTY_WORKSPACE: WorkspaceStatus = {
   ready: true,
@@ -19,6 +19,11 @@ const EMPTY_WORKSPACE: WorkspaceStatus = {
   database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
 };
 
+const EMPTY_TABLES: TablesResponse = {
+  database: { driver: 'sqlite', dsn: '/ws/gormcsv.db' },
+  tables: [],
+};
+
 describe('App shell', () => {
   let httpTesting: HttpTestingController;
   let router: Router;
@@ -26,7 +31,7 @@ describe('App shell', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()],
+      providers: [routerProviders, provideHttpClient(), provideHttpClientTesting()],
     });
     httpTesting = TestBed.inject(HttpTestingController);
     router = TestBed.inject(Router);
@@ -38,16 +43,21 @@ describe('App shell', () => {
     httpTesting.verify();
   });
 
-  async function renderAt(url: string) {
-    const fixture = TestBed.createComponent(App);
-    await router.navigateByUrl(url);
-    // Pages that load data (e.g. Models via httpResource) keep the app unstable until answered.
+  // Pages that load data (Models, Tables via httpResource) keep the app unstable until answered.
+  async function answerPageData(fixture: ComponentFixture<App>, tables = EMPTY_TABLES) {
     const stable = fixture.whenStable();
     for (let i = 0; i < 5; i++) {
       await new Promise((resolve) => setTimeout(resolve));
       httpTesting.match('/api/models').forEach((req) => req.flush(EMPTY_WORKSPACE));
+      httpTesting.match('/api/tables').forEach((req) => req.flush(tables));
     }
     await stable;
+  }
+
+  async function renderAt(url: string) {
+    const fixture = TestBed.createComponent(App);
+    await router.navigateByUrl(url);
+    await answerPageData(fixture);
     const el = fixture.nativeElement as HTMLElement;
     return { fixture, el };
   }
@@ -83,6 +93,7 @@ describe('App shell', () => {
     ['/import', 'Import CSV', 'Import CSV | gormcsv Admin'],
     ['/models', 'Models', 'Models | gormcsv Admin'],
     ['/tables', 'Tables', 'Tables | gormcsv Admin'],
+    ['/tables/countries', 'Tables', 'Tables | gormcsv Admin'],
     ['/history', 'Import history', 'Import history | gormcsv Admin'],
     ['/no-such-page', 'Page not found', 'Not found | gormcsv Admin'],
   ])('lazy-loads %s with its heading and document title', async (url, heading, title) => {
@@ -92,11 +103,23 @@ describe('App shell', () => {
     expect(TestBed.inject(Title).getTitle()).toBe(title);
   });
 
+  it('binds /tables/:name to the Tables page, through the app router config', async () => {
+    const fixture = TestBed.createComponent(App);
+    await router.navigateByUrl('/tables/countries');
+    await answerPageData(fixture, {
+      ...EMPTY_TABLES,
+      tables: [{ name: 'countries', rows: 3, columns: [], indexes: [] }],
+    });
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-tables-page .detail h3')?.textContent?.trim()).toBe('countries');
+  });
+
   it('follows a nav link click to the section', async () => {
     const { fixture, el } = await renderAt('/import');
 
     el.querySelector<HTMLAnchorElement>('a[href="/tables"]')?.click();
-    await fixture.whenStable();
+    await answerPageData(fixture);
 
     expect(router.url).toBe('/tables');
     expect(el.querySelector('a[href="/tables"]')?.getAttribute('aria-current')).toBe('page');

@@ -10,25 +10,22 @@ also an Angular learning exercise, so features are added one step at a time. Eac
 
 ## Status (2026-11-16)
 
-Phases 0 to 5 are done: 87 Angular specs and 153 API tests pass (160 including the real-CLI,
-real-build and real-Postgres integration tests). CI runs them all, with a Postgres service.
+Phases 0 to 6 are done: 97 Angular specs and 166 API tests pass (176 including the real-CLI,
+real-build and real-Postgres integration tests).
 
-**Open gormcsv branch `gorm-logs-to-stderr`**, needed by the admin, so merge it before pushing:
+**Open gormcsv branch `tables-command` (`90dffb7`)**: adds `gormcsv tables [--json]`, which the
+Tables page needs. Merge it and install the new binary before pushing the admin; CI builds gormcsv
+master.
 
-- `abfe7ac` sends GORM's log lines to stderr. They went to stdout and corrupted `--json`.
-- `6678dfb` lets `importcsv` read `GORMCSV_DB_DRIVER` and `GORMCSV_DSN`. The admin now passes
-  the DSN that way, keeping the password out of the process list, and refuses to import with a
-  workspace binary that lacks it.
+**Next: Phase 7, record browser.** Intended shape:
 
-After merging, move the workspace worktree to the new master and re-register a model to rebuild.
-
-**Next: Phase 6, schema browser.** Intended shape:
-
-- `GET /api/tables` and `GET /api/tables/:name/schema` for the import database.
-- SQLite first, read directly from Node (e.g. better-sqlite3, read-only); Postgres and MySQL
-  later, or through a gormcsv command if that avoids three Node drivers.
-- Sidebar table list and a column/type detail view at `/tables/:name`, rendered client-side.
-- Table names validated against the database's own catalogue before use.
+- `gormcsv rows --table <name> --json --limit N --offset N [--order column] [--desc]`, so paging
+  and sorting run in the database for all three drivers. gormcsv checks the table and column
+  against the catalogue and quotes them, so names never reach SQL unchecked.
+- `GET /api/tables/:name/rows?page&size&sort&dir` validates the name against `/api/tables`
+  before calling it.
+- `/tables/:name` gains a rows tab: `mat-table` with `mat-paginator` and `mat-sort`, with the
+  page and sort kept in the URL query.
 
 Notes for picking up:
 
@@ -147,10 +144,13 @@ Project-specific:
 - The connection details are part of `GET /api/models` rather than a separate
   `/api/database`, since only the Models page needs them so far.
 
-### Phase 6: Schema browser
+### Phase 6: Schema browser (done)
 
-- `GET /api/tables` and `GET /api/tables/:name/schema` (better-sqlite3).
-- Sidebar table list and column/type detail view at `/tables/:name`.
+- `GET /api/tables` runs a new `gormcsv tables --json`. GORM's migrator reads the catalogue, so
+  SQLite, Postgres and MySQL all work with no database driver in Node. The DSN is passed in
+  `GORMCSV_DSN`.
+- `/tables` lists tables with row counts. `/tables/:name` shows columns in table order and
+  indexes. The route parameter binds to a component input.
 
 ### Phase 7: Record browser
 
