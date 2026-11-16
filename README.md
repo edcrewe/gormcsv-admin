@@ -12,7 +12,8 @@ for coding conventions.
 
 - Node.js 22+ and npm
 - `gormcsv` on your `PATH`, or set `GORMCSV_BIN=/path/to/gormcsv`. It must have the `version`
-  command and `--json` output (gormcsv `5d80040` or later). Without `version` the header badge
+  command and `--json` output (gormcsv `5d80040` or later). The workspace checkout needs
+  `6678dfb` or later, which reads the import DSN from `GORMCSV_DSN`. Without `version` the header badge
   shows "gormcsv CLI not available or too old"; without `--json`, inspecting says gormcsv "may be
   too old".
 
@@ -93,9 +94,10 @@ GORMCSV_DB_DRIVER=postgres GORMCSV_DSN='host=localhost user=u password=p dbname=
 GORMCSV_DB_DRIVER=mysql GORMCSV_DSN='user:pass@tcp(localhost:3306)/db?parseTime=true'
 ```
 
-URL-encode special characters in a URL-style password (`@` as `%40`). The admin passes the DSN
-to gormcsv as `--dsn`, so it is visible to other local users in the process list while an import
-runs; keep the admin on a single-user machine, or use a database account limited to this job.
+URL-encode special characters in a URL-style password (`@` as `%40`). The admin hands the DSN
+to gormcsv in its `GORMCSV_DSN` environment variable rather than as `--dsn`, so it does not show
+in the process list. That needs a workspace binary built from gormcsv `6678dfb` or later; with an
+older one, Populate refuses and asks you to re-register a model to rebuild it.
 
 SSR only answers requests for `localhost` and `127.0.0.1` (`security.allowedHosts` in
 `angular.json`). Add a host there if you serve it under another name.

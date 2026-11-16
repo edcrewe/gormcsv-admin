@@ -10,13 +10,17 @@ also an Angular learning exercise, so features are added one step at a time. Eac
 
 ## Status (2026-11-16)
 
-Phases 0 to 5 are done: 87 Angular specs and 150 API tests pass (157 including the real-CLI,
+Phases 0 to 5 are done: 87 Angular specs and 153 API tests pass (160 including the real-CLI,
 real-build and real-Postgres integration tests). CI runs them all, with a Postgres service.
 
-**Open gormcsv branch `gorm-logs-to-stderr` (`abfe7ac`)**: GORM logged connection errors and slow
-queries to stdout, corrupting `--json`. The admin already falls back to the CLI's error message
-when that happens, but a slow query during a successful import would still break the report until
-this is merged and the workspace binary rebuilt.
+**Open gormcsv branch `gorm-logs-to-stderr`**, needed by the admin, so merge it before pushing:
+
+- `abfe7ac` sends GORM's log lines to stderr. They went to stdout and corrupted `--json`.
+- `6678dfb` lets `importcsv` read `GORMCSV_DB_DRIVER` and `GORMCSV_DSN`. The admin now passes
+  the DSN that way, keeping the password out of the process list, and refuses to import with a
+  workspace binary that lacks it.
+
+After merging, move the workspace worktree to the new master and re-register a model to rebuild.
 
 **Next: Phase 6, schema browser.** Intended shape:
 
@@ -36,7 +40,7 @@ Notes for picking up:
 - Workspace: a detached worktree at `~/.local/share/gormcsv-admin/gormcsv-src`, with `csv/`,
   `bin/` and `duplicates.json` beside it. The models the binary was built with are saved as
   `bin/models.json`, so the Models page stays right even if the worktree is updated.
-- The local workspace worktree is at gormcsv `5d80040`. Country is registered with a key on
+- The local workspace worktree is at gormcsv `6678dfb`. Country is registered with a key on
   `code`, and `gormcsv.db` has been populated from it. To reset it, remove `csv/` and `bin/`, then run
   `git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout -- importcsv/models.go`.
 - VS Code: if test globals go missing, run "TypeScript: Restart TS Server". All three tsconfigs

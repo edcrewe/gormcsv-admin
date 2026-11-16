@@ -90,6 +90,18 @@ describe('createCommandRunner', () => {
     expect(err).toMatchObject({ timedOut: true, exitCode: null });
   });
 
+  it('adds env vars to the server environment for the child only', async () => {
+    const run = createCommandRunner();
+    const script = 'console.log(process.env.GORMCSV_TEST_VAR, typeof process.env.PATH)';
+
+    const { stdout } = await run(process.execPath, ['-e', script], {
+      env: { GORMCSV_TEST_VAR: 'from-env' },
+    });
+
+    expect(stdout.trim()).toBe('from-env string');
+    expect(process.env['GORMCSV_TEST_VAR']).toBeUndefined();
+  });
+
   it('captures output larger than the execFile 1 MiB default', async () => {
     const run = createCommandRunner();
 

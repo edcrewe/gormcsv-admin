@@ -49,6 +49,8 @@ interface FakeOptions {
   buildError?: CommandError;
   buildDelayMs?: number;
   describeFails?: boolean;
+  /** A built binary whose importcsv predates GORMCSV_DSN. */
+  oldImportcsv?: boolean;
   /** What the built binary's importcsv does; defaults to importing every file cleanly. */
   importcsv?: (files: string) => Promise<{ stdout: string; stderr: string }>;
 }
@@ -143,6 +145,10 @@ function fakeTools(options: FakeOptions = {}) {
     }
     if (command.endsWith('/bin/gormcsv') && args[0] === 'version') {
       return { stdout: `gormcsv ${VERSION}\n`, stderr: '' };
+    }
+    if (command.endsWith('/bin/gormcsv') && args[0] === 'importcsv' && args[1] === '--help') {
+      const dsnHelp = options.oldImportcsv ? '' : '; GORMCSV_DSN applies when not given';
+      return { stdout: `  -d, --dsn string   database connection string${dsnHelp}\n`, stderr: '' };
     }
     if (command.endsWith('/bin/gormcsv') && args[0] === 'importcsv') {
       const files = args[args.indexOf('--files') + 1];
@@ -446,16 +452,18 @@ describe('ModelWorkspace.populate', () => {
 
     const result = await workspace.populate(OPTIONS);
 
-    expect(tools.calls).toHaveLength(1);
-    expect(tools.calls[0].command).toBe(join(dir, 'bin', 'gormcsv'));
-    expect(tools.calls[0].args).toEqual([
+    // The first call checks the binary's help for GORMCSV_DSN support; the second imports.
+    expect(tools.calls.map((c) => c.args.slice(0, 2))).toEqual([
+      ['importcsv', '--help'],
+      ['importcsv', '--files'],
+    ]);
+    expect(tools.calls[1].command).toBe(join(dir, 'bin', 'gormcsv'));
+    expect(tools.calls[1].args).toEqual([
       'importcsv',
       '--files',
       join(dir, 'csv'),
       '--driver',
       'sqlite',
-      '--dsn',
-      join(dir, 'gormcsv.db'),
       '--batch-size',
       '500',
       '--workers',
@@ -479,7 +487,7 @@ describe('ModelWorkspace.populate', () => {
 
     const result = await workspace.populate({ ...OPTIONS, file: 'users.csv' });
 
-    expect(tools.calls[0].args[2]).toBe(join(dir, 'csv', 'users.csv'));
+    expect(tools.calls.at(-1)!.args[2]).toBe(join(dir, 'csv', 'users.csv'));
     expect(result.files.map((f) => f.model)).toEqual(['Users']);
   });
 
@@ -494,9 +502,12 @@ describe('ModelWorkspace.populate', () => {
 
     const result = await workspace.populate(OPTIONS);
 
-    const args = tools.calls.at(-1)!.args;
-    expect(args[args.indexOf('--driver') + 1]).toBe('postgres');
-    expect(args[args.indexOf('--dsn') + 1]).toBe(database.dsn);
+    const importCall = tools.calls.at(-1)!;
+    expect(importCall.args[importCall.args.indexOf('--driver') + 1]).toBe('postgres');
+    // The DSN travels in the environment, so it never appears in the process list.
+    expect(importCall.args).not.toContain('--dsn');
+    expect(importCall.args.join(' ')).not.toContain('s3cret');
+    expect(importCall.options?.env).toEqual({ GORMCSV_DSN: database.dsn });
     const masked = { driver: 'postgres', dsn: 'postgres://ed:***@db:5432/admin?sslmode=disable' };
     expect(result.database).toEqual(masked);
     expect((await workspace.status()).database).toEqual(masked);
@@ -633,6 +644,30 @@ describe('ModelWorkspace.populate', () => {
     expect(err).toMatchObject({ kind: 'failed', message: 'importcsv timed out' });
   });
 
+  it('refuses a binary that would ignore GORMCSV_DSN, rather than import somewhere else', async () => {
+    const { tools, workspace } = await built({ oldImportcsv: true });
+
+    const err = await workspace.populate(OPTIONS).catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ kind: 'not-ready', message: expect.stringMatching(/GORMCSV_DSN/) });
+    expect(tools.calls.filter((c) => c.args[0] === 'importcsv' && c.args[1] !== '--help')).toEqual(
+      [],
+    );
+  });
+
+  it('checks the binary help once per build', async () => {
+    const { tools, workspace } = await built();
+
+    await workspace.populate(OPTIONS);
+    await workspace.populate(OPTIONS);
+    const helpCalls = () => tools.calls.filter((c) => c.args[1] === '--help').length;
+    expect(helpCalls()).toBe(1);
+
+    await workspace.register(await upload('users.csv'), 'users.csv');
+    await workspace.populate(OPTIONS);
+    expect(helpCalls()).toBe(2);
+  });
+
   it('refuses before the first build', async () => {
     const tools = fakeTools();
 
@@ -665,12 +700,13 @@ describe('ModelWorkspace.populate', () => {
     const importing = workspace.populate(OPTIONS);
     const [, result] = await Promise.all([registering, importing]);
 
-    expect(tools.calls.map((c) => c.args[0])).toEqual([
-      'inspectcsv',
-      'describe',
-      'build',
+    expect(tools.calls.map((c) => c.args.slice(0, 2).join(' '))).toEqual([
+      expect.stringMatching(/^inspectcsv/),
+      expect.stringMatching(/^describe/),
+      expect.stringMatching(/^build/),
       'version',
-      'importcsv',
+      'importcsv --help',
+      'importcsv --files',
     ]);
     expect(result.files.map((f) => f.model)).toEqual(['Orders', 'Users']);
   });
