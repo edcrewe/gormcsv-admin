@@ -53,50 +53,68 @@
             {{ table.rows }} {{ table.rows === 1 ? 'row' : 'rows' }}, {{ table.columns.length }}
             columns.
           </p>
-          <table mat-table [dataSource]="table.columns">
-            <caption>
-              Columns of
-              {{
-                table.name
-              }}, in table order
-            </caption>
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef scope="col">Column</th>
-              <td mat-cell *matCellDef="let column">{{ column.name }}</td>
-            </ng-container>
-            <ng-container matColumnDef="type">
-              <th mat-header-cell *matHeaderCellDef scope="col">Type</th>
-              <td mat-cell *matCellDef="let column">
-                <code>{{ column.type }}</code>
-              </td>
-            </ng-container>
-            <ng-container matColumnDef="nullable">
-              <th mat-header-cell *matHeaderCellDef scope="col">Nullable</th>
-              <td mat-cell *matCellDef="let column">{{ column.nullable ? 'yes' : 'no' }}</td>
-            </ng-container>
-            <ng-container matColumnDef="primaryKey">
-              <th mat-header-cell *matHeaderCellDef scope="col">Primary key</th>
-              <td mat-cell *matCellDef="let column">{{ column.primaryKey ? 'yes' : '' }}</td>
-            </ng-container>
-            <tr mat-header-row *matHeaderRowDef="columns"></tr>
-            <tr mat-row *matRowDef="let row; columns: columns"></tr>
-          </table>
+          <nav mat-tab-nav-bar [tabPanel]="tabPanel" aria-label="Table views">
+            <a mat-tab-link [routerLink]="[]" [queryParams]="{}" [active]="!showRows()">Columns</a>
+            <a mat-tab-link [routerLink]="[]" [queryParams]="{ view: 'rows' }" [active]="showRows()"
+              >Rows</a
+            >
+          </nav>
+          <mat-tab-nav-panel #tabPanel>
+            @if (showRows()) {
+              <app-table-rows
+                [table]="table.name"
+                [page]="page()"
+                [size]="size()"
+                [sort]="sort()"
+                [direction]="dir()"
+              />
+            } @else {
+              <table mat-table [dataSource]="table.columns">
+                <caption>
+                  Columns of
+                  {{
+                    table.name
+                  }}, in table order
+                </caption>
+                <ng-container matColumnDef="name">
+                  <th mat-header-cell *matHeaderCellDef scope="col">Column</th>
+                  <td mat-cell *matCellDef="let column">{{ column.name }}</td>
+                </ng-container>
+                <ng-container matColumnDef="type">
+                  <th mat-header-cell *matHeaderCellDef scope="col">Type</th>
+                  <td mat-cell *matCellDef="let column">
+                    <code>{{ column.type }}</code>
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="nullable">
+                  <th mat-header-cell *matHeaderCellDef scope="col">Nullable</th>
+                  <td mat-cell *matCellDef="let column">{{ column.nullable ? 'yes' : 'no' }}</td>
+                </ng-container>
+                <ng-container matColumnDef="primaryKey">
+                  <th mat-header-cell *matHeaderCellDef scope="col">Primary key</th>
+                  <td mat-cell *matCellDef="let column">{{ column.primaryKey ? 'yes' : '' }}</td>
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="columns"></tr>
+                <tr mat-row *matRowDef="let row; columns: columns"></tr>
+              </table>
 
-          <h4>Indexes</h4>
-          @if (table.indexes.length) {
-            <ul class="indexes">
-              @for (index of table.indexes; track index.name) {
-                <li>
-                  <code>{{ index.name }}</code> on {{ index.columns.join(', ') }}
-                  @if (index.unique) {
-                    <strong>(unique)</strong>
+              <h4>Indexes</h4>
+              @if (table.indexes.length) {
+                <ul class="indexes">
+                  @for (index of table.indexes; track index.name) {
+                    <li>
+                      <code>{{ index.name }}</code> on {{ index.columns.join(', ') }}
+                      @if (index.unique) {
+                        <strong>(unique)</strong>
+                      }
+                    </li>
                   }
-                </li>
+                </ul>
+              } @else {
+                <p>None.</p>
               }
-            </ul>
-          } @else {
-            <p>None.</p>
-          }
+            }
+          </mat-tab-nav-panel>
         } @else if (name(); as missing) {
           <p class="error" role="alert">There is no table named {{ missing }}.</p>
         } @else {

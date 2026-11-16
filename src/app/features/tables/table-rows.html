@@ -1,0 +1,45 @@
+@if (rows.isLoading()) {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading rows" />
+}
+
+@if (loadError(); as message) {
+  <p class="error" role="alert">{{ message }}</p>
+}
+
+@if (data(); as data) {
+  <p class="range" aria-live="polite">{{ range() }}</p>
+  <div class="scroll" tabindex="0" role="region" [attr.aria-label]="'Rows of ' + data.table">
+    <table
+      mat-table
+      [dataSource]="data.rows"
+      matSort
+      [matSortActive]="sort() ?? ''"
+      [matSortDirection]="sort() ? (descending() ? 'desc' : 'asc') : ''"
+      (matSortChange)="onSort($event)"
+    >
+      @for (column of data.columns; track column; let i = $index) {
+        <ng-container [matColumnDef]="column">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header scope="col">{{ column }}</th>
+          <td mat-cell *matCellDef="let row" [title]="display(row[i])">
+            @if (row[i] === null) {
+              <span class="null">null</span>
+            } @else {
+              {{ display(row[i]) }}
+            }
+          </td>
+        </ng-container>
+      }
+      <tr mat-header-row *matHeaderRowDef="data.columns; sticky: true"></tr>
+      <tr mat-row *matRowDef="let row; columns: data.columns"></tr>
+    </table>
+  </div>
+  <mat-paginator
+    [length]="data.total"
+    [pageIndex]="page()"
+    [pageSize]="size()"
+    [pageSizeOptions]="pageSizes"
+    showFirstLastButtons
+    (page)="onPage($event)"
+    [attr.aria-label]="'Pages of ' + data.table"
+  />
+}

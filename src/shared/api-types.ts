@@ -148,6 +148,20 @@ export interface TablesResponse {
   tables: TableInfo[];
 }
 
+/** One page of a table (from `gormcsv rows --json`). Each row has a value per column, in order. */
+export interface RowsPage {
+  table: string;
+  columns: string[];
+  rows: unknown[][];
+  /** Every row in the table, for paging. */
+  total: number;
+  limit: number;
+  offset: number;
+  /** The column the page is sorted by; the primary key unless another was asked for. */
+  order: string;
+  desc: boolean;
+}
+
 export function isApiError(value: unknown): value is ApiError {
   return (
     typeof value === 'object' &&

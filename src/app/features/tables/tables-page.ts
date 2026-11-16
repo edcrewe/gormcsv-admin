@@ -5,7 +5,8 @@
  * name signal input, so /tables/countries selects a table by URL, and the browser's back button
  * and bookmarks work with no extra code. computed() then finds the selected table in the loaded
  * list, and the template just reads it. The route renders in the browser only, since the data is
- * live (app.routes.server.ts).
+ * live (app.routes.server.ts). Query parameters bind the same way: ?view=rows picks the Rows
+ * tab, and its page and sort parameters pass straight through to TableRows.
  */
 
 import { Component, computed, input } from '@angular/core';
@@ -16,6 +17,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
+import { MatTabsModule } from '@angular/material/tabs';
+import { TableRows } from './table-rows';
 import { TablesResponse, isApiError } from '../../../shared/api-types';
 
 @Component({
@@ -28,6 +31,8 @@ import { TablesResponse, isApiError } from '../../../shared/api-types';
     MatListModule,
     MatProgressBarModule,
     MatTableModule,
+    MatTabsModule,
+    TableRows,
   ],
   templateUrl: './tables-page.html',
   styleUrl: './tables-page.scss',
@@ -35,6 +40,13 @@ import { TablesResponse, isApiError } from '../../../shared/api-types';
 export class TablesPage {
   /** From the :name route parameter; undefined on /tables. */
   readonly name = input<string>();
+  /** Query parameters, also bound by the router: which tab, and the rows view's page and sort. */
+  readonly view = input<string>();
+  readonly page = input<string>();
+  readonly size = input<string>();
+  readonly sort = input<string>();
+  readonly dir = input<string>();
+  protected readonly showRows = computed(() => this.view() === 'rows');
 
   protected readonly data = httpResource<TablesResponse>(() => '/api/tables');
   protected readonly columns = ['name', 'type', 'nullable', 'primaryKey'];
