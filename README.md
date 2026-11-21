@@ -114,6 +114,16 @@ to gormcsv in its `GORMCSV_DSN` environment variable rather than as `--dsn`, so 
 in the process list. That needs a workspace binary built from gormcsv `6678dfb` or later; with an
 older one, Populate refuses and asks you to re-register a model to rebuild it.
 
+Or, to run it as a command from anywhere, link the package once after building:
+
+```bash
+npm run build && npm link
+gormcsv-admin --port 4000 --host 127.0.0.1   # or: npx gormcsv-admin
+```
+
+`gormcsv-admin` starts the built server with the same environment variables. Rebuild after
+pulling changes; `npm unlink -g gormcsv-admin` removes the command.
+
 SSR only answers requests for `localhost` and `127.0.0.1` (`security.allowedHosts` in
 `angular.json`). Add a host there if you serve it under another name.
 

@@ -16,8 +16,7 @@ real-build and real-Postgres integration tests).
 **Open gormcsv branch `rows-command` (`e44e9ff`)**: the Rows tab needs it. Merge it before
 pushing the admin; CI builds gormcsv master.
 
-**Remaining "Later" items, in progress:** `samples/` CSVs, a
-`gormcsv-admin` bin entry, README screenshots. The schema editor is deferred.
+**Remaining "Later" item, in progress:** README screenshots. The schema editor is deferred.
 
 Notes for picking up:
 
@@ -169,6 +168,4 @@ Project-specific:
 ### Later
 
 - Schema editor to override inferred types before generating models.
-- `npx gormcsv-admin` bin entry.
-- `samples/` with example CSVs.
 - README and screenshots.
