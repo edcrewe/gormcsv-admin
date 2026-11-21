@@ -138,12 +138,30 @@ the table:
 | `order-lines.csv` | Skip when key columns match: `order_id` and `line` | A composite key                             |
 | `readings.csv`    | Skip when the whole row matches                    | No natural key; one reading is repeated     |
 
-1. On **Import CSV**, choose a sample, **Inspect** it, pick its duplicate rule as above, and
-   **Register** it. Repeat for the others.
-2. On **Models**, **Import** all registered CSVs: 17 rows go in, and the repeated reading is
+1. On **Import CSV**, choose a sample and **Inspect** it to see the model gormcsv infers.
+
+   ![Inspecting products.csv](docs/screenshots/import.png)
+
+2. Pick its duplicate rule as in the table above, and **Register** it, which rebuilds gormcsv
+   with the new model. Repeat for the other samples.
+
+   ![Registering products.csv with a key on sku](docs/screenshots/register.png)
+
+3. On **Models**, **Import** all registered CSVs: 17 rows go in, and the repeated reading is
    skipped. Import again and all 18 rows are skipped.
-3. **Tables** shows the new tables, their unique indexes and their rows; **History** shows each
-   step.
+
+   ![A second import skipping every row](docs/screenshots/populate.png)
+
+4. **Tables** shows the new tables with their columns and indexes, and the **Rows** tab pages
+   and sorts their contents.
+
+   ![The products table's columns](docs/screenshots/tables.png)
+
+   ![Products sorted by price, most expensive first](docs/screenshots/rows.png)
+
+5. **History** shows each step.
+
+   ![The import history](docs/screenshots/history.png)
 
 ## Run the tests
 
