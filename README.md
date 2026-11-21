@@ -117,6 +117,24 @@ older one, Populate refuses and asks you to re-register a model to rebuild it.
 SSR only answers requests for `localhost` and `127.0.0.1` (`security.allowedHosts` in
 `angular.json`). Add a host there if you serve it under another name.
 
+## Try it with the samples
+
+`samples/` has three small CSVs, each showing a different way to handle rows that are already in
+the table:
+
+| CSV               | Register with                                      | Shows                                       |
+| ----------------- | -------------------------------------------------- | ------------------------------------------- |
+| `products.csv`    | Skip when key columns match: `sku`                 | A natural key, decimals, booleans and dates |
+| `order-lines.csv` | Skip when key columns match: `order_id` and `line` | A composite key                             |
+| `readings.csv`    | Skip when the whole row matches                    | No natural key; one reading is repeated     |
+
+1. On **Import CSV**, choose a sample, **Inspect** it, pick its duplicate rule as above, and
+   **Register** it. Repeat for the others.
+2. On **Models**, **Import** all registered CSVs: 17 rows go in, and the repeated reading is
+   skipped. Import again and all 18 rows are skipped.
+3. **Tables** shows the new tables, their unique indexes and their rows; **History** shows each
+   step.
+
 ## Run the tests
 
 | Command                  | What it runs                                                           |

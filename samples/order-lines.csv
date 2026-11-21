@@ -1,0 +1,7 @@
+order_id,line,sku,quantity,discount
+A1001,1,TENT-2P,1,0
+A1001,2,BAG-0C,2,0.1
+A1002,1,STOVE-G,1,0
+A1002,2,POT-SET,1,0
+A1002,3,LAMP-LED,3,0.05
+A1003,1,TORCH-H,2,0

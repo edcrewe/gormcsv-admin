@@ -1,0 +1,8 @@
+sku,name,category,unit_price,in_stock,launched
+TENT-2P,Two person tent,camping,149.99,true,2024-03-01
+TENT-4P,Family tent,camping,289.00,true,2024-03-01
+BAG-0C,Sleeping bag 0C,camping,79.50,false,2023-09-15
+STOVE-G,Gas stove,cooking,34.95,true,2022-05-20
+POT-SET,Cook pot set,cooking,29.00,true,2022-05-20
+LAMP-LED,LED lantern,lighting,19.99,true,2025-01-10
+TORCH-H,Head torch,lighting,24.50,false,2025-01-10
