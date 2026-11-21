@@ -8,20 +8,16 @@ The Angular SSR Express server (`src/server.ts`) is a local bridge to the `gormc
 also an Angular learning exercise, so features are added one step at a time. Each step is a
 `feat:` commit then a `test:` commit, and stops for review before the next.
 
-## Status (2026-11-16)
+## Status (2026-11-21)
 
-Phases 0 to 7 are done: 113 Angular specs and 188 API tests pass (199 including the real-CLI,
+Phases 0 to 8 are done: 119 Angular specs and 214 API tests pass (225 including the real-CLI,
 real-build and real-Postgres integration tests).
 
-**Open gormcsv branch `rows-command` (`e44e9ff`)**: adds `gormcsv rows`, which the Rows tab needs.
-Merge it and install the new binary before pushing the admin; CI builds gormcsv master.
+**Open gormcsv branch `rows-command` (`e44e9ff`)**: the Rows tab needs it. Merge it before
+pushing the admin; CI builds gormcsv master.
 
-**Next: Phase 8, import history.** Intended shape:
-
-- Record each registration and import (time, file, model, counts, outcome, errors) in an append-only
-  `history.jsonl` in the workspace, since the admin needs no database of its own for this.
-- `GET /api/history?limit&offset` newest first, and the `/history` page with a `mat-table`, reusing
-  the paging pattern from the Rows tab (state in the URL, httpResource from a computed URL).
+**Remaining "Later" items, in progress:** ESLint in CI, `samples/` CSVs, a
+`gormcsv-admin` bin entry, README screenshots. The schema editor is deferred.
 
 Notes for picking up:
 
@@ -162,15 +158,16 @@ Project-specific:
   uses `mat-table`, `mat-sort` and `mat-paginator`, with the page, size and sort in the URL query
   bound to inputs.
 
-### Phase 8: Import history
+### Phase 8: Import history (done)
 
-- Audit log in a metadata SQLite file: time, file, model, counts, exit status.
-- History view, like django-csvimport's log.
+- An append-only `history.jsonl` in the workspace, one line per registration and import: time,
+  CSV, outcome (ok, partial or failed), the masked database, totals, the first 20 messages. A
+  plain file rather than a SQLite file, since the log only ever needs paging newest first.
+- `GET /api/history` and the `/history` page, which pages through the URL like the Rows tab.
 
 ### Later
 
 - Schema editor to override inferred types before generating models.
-- Postgres/MySQL browsing.
 - ESLint. GitHub Actions CI is done: `.github/workflows/test.yml`.
 - `npx gormcsv-admin` bin entry.
 - `samples/` with example CSVs.

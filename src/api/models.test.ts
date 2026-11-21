@@ -3,10 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import express from 'express';
 import request from 'supertest';
-import type { RegisterResult, WorkspaceStatus } from '../shared/api-types';
+import type { DuplicateRule, RegisterResult, WorkspaceStatus } from '../shared/api-types';
 import { createApiRouter } from './api-router';
 import { GormcsvRunner } from './commands';
-import { parseDuplicateRule } from './models';
+import { HistoryLog } from './history';
+import { parseDuplicateRule, ruleSummary } from './models';
 import { ModelWorkspace, WorkspaceError } from './workspace';
 
 const STATUS: WorkspaceStatus = {
@@ -219,5 +220,68 @@ describe('without a workspace', () => {
     const res = await request(app).get('/api/models');
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /api/models history', () => {
+  function appWithHistory(workspace: Partial<ModelWorkspace>) {
+    const record = vi.fn().mockResolvedValue(undefined);
+    const app = express();
+    app.use(
+      '/api',
+      createApiRouter({
+        runner: vi.fn<GormcsvRunner>(),
+        workspace: workspace as ModelWorkspace,
+        upload: { tempRoot },
+        history: { record } as unknown as HistoryLog,
+      }),
+    );
+    return { app, record };
+  }
+
+  it('records a registration with its duplicate rule and warnings', async () => {
+    const register = vi.fn().mockResolvedValue({
+      file: 'Country.csv',
+      warnings: ['Country.csv: skipped 1 row'],
+      status: { ...STATUS, duplicates: { country: { mode: 'key', columns: ['code'] } } },
+    });
+    const { app, record } = appWithHistory({ register });
+
+    await request(app).post('/api/models').attach('file', 'fixtures/TestTypes.csv', {
+      filename: 'Country.csv',
+    });
+
+    expect(record).toHaveBeenCalledWith({
+      action: 'register',
+      outcome: 'ok',
+      file: 'Country.csv',
+      message: 'Duplicates: key on code',
+      errors: ['Country.csv: skipped 1 row'],
+    });
+  });
+
+  it('records a failed registration with its error', async () => {
+    const register = vi.fn().mockRejectedValue(new WorkspaceError('go build failed', 'build'));
+    const { app, record } = appWithHistory({ register });
+
+    await request(app).post('/api/models').attach('file', 'fixtures/TestTypes.csv');
+
+    expect(record).toHaveBeenCalledWith({
+      action: 'register',
+      outcome: 'failed',
+      file: 'TestTypes.csv',
+      message: 'go build failed',
+    });
+  });
+});
+
+describe('ruleSummary', () => {
+  it.each([
+    [undefined, 'imported again'],
+    [{ mode: 'allow' } as const, 'imported again'],
+    [{ mode: 'identical' } as const, 'identical rows skipped'],
+    [{ mode: 'key', columns: ['a', 'b'] } as DuplicateRule, 'key on a + b'],
+  ])('summarises %j', (rule, text) => {
+    expect(ruleSummary(rule)).toBe(text);
   });
 });

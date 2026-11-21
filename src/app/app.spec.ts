@@ -50,6 +50,9 @@ describe('App shell', () => {
       await new Promise((resolve) => setTimeout(resolve));
       httpTesting.match('/api/models').forEach((req) => req.flush(EMPTY_WORKSPACE));
       httpTesting.match('/api/tables').forEach((req) => req.flush(tables));
+      httpTesting
+        .match((r) => r.url.startsWith('/api/history'))
+        .forEach((req) => req.flush({ entries: [], total: 0, limit: 25, offset: 0 }));
     }
     await stable;
   }

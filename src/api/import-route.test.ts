@@ -3,6 +3,7 @@ import request from 'supertest';
 import type { ImportResult } from '../shared/api-types';
 import { createApiRouter } from './api-router';
 import { GormcsvRunner } from './commands';
+import { HistoryLog } from './history';
 import { parseImportRequest } from './import-route';
 import { ModelWorkspace, WorkspaceError } from './workspace';
 
@@ -126,5 +127,73 @@ describe('POST /api/import', () => {
 
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ ok: false, error: 'Import failed', details: 'disk full' });
+  });
+});
+
+describe('POST /api/import history', () => {
+  function appWithHistory(workspace: Partial<ModelWorkspace>) {
+    const record = vi.fn().mockResolvedValue(undefined);
+    const app = express();
+    app.use(
+      '/api',
+      createApiRouter({
+        runner: vi.fn<GormcsvRunner>(),
+        workspace: workspace as ModelWorkspace,
+        history: { record } as unknown as HistoryLog,
+      }),
+    );
+    return { app, record };
+  }
+
+  it('records a partial import with totals, database and row errors', async () => {
+    const { app, record } = appWithHistory({ populate: vi.fn().mockResolvedValue(RESULT) });
+
+    await request(app).post('/api/import').send({ file: 'Country.csv', batchSize: 10, workers: 1 });
+
+    expect(record).toHaveBeenCalledWith({
+      action: 'import',
+      outcome: 'partial',
+      file: 'Country.csv',
+      database: RESULT.database,
+      totals: RESULT.totals,
+      errors: RESULT.errors,
+    });
+  });
+
+  it('records a complete import of every CSV as ok, with no file', async () => {
+    const complete = { ...RESULT, complete: true, errors: [] };
+    const { app, record } = appWithHistory({ populate: vi.fn().mockResolvedValue(complete) });
+
+    await request(app).post('/api/import').send({ batchSize: 10, workers: 1 });
+
+    expect(record).toHaveBeenCalledWith({
+      action: 'import',
+      outcome: 'ok',
+      database: RESULT.database,
+      totals: RESULT.totals,
+    });
+  });
+
+  it('records a failed import with the masked database and the error', async () => {
+    const populate = vi.fn().mockRejectedValue(new WorkspaceError('importcsv timed out', 'failed'));
+    const database = { driver: 'postgres' as const, dsn: 'postgres://ed:s3cret@db/admin' };
+    const { app, record } = appWithHistory({ populate, database });
+
+    await request(app).post('/api/import').send({ batchSize: 10, workers: 1 });
+
+    expect(record).toHaveBeenCalledWith({
+      action: 'import',
+      outcome: 'failed',
+      database: { driver: 'postgres', dsn: 'postgres://ed:***@db/admin' },
+      message: 'importcsv timed out',
+    });
+  });
+
+  it('does not record a request rejected for bad options', async () => {
+    const { app, record } = appWithHistory({ populate: vi.fn() });
+
+    await request(app).post('/api/import').send({ batchSize: 0, workers: 1 });
+
+    expect(record).not.toHaveBeenCalled();
   });
 });
