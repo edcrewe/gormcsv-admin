@@ -36,7 +36,12 @@ describe('TableRows', () => {
 
   afterEach(() => httpTesting.verify());
 
-  type Inputs = { page?: unknown; size?: unknown; sort?: string; direction?: string };
+  interface Inputs {
+    page?: unknown;
+    size?: unknown;
+    sort?: string;
+    direction?: string;
+  }
 
   /** Renders, lets httpResource request, then answers with page (or an error). */
   async function render(inputs: Inputs = {}, page: RowsPage | 'error' = PAGE) {

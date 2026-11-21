@@ -122,6 +122,7 @@ SSR only answers requests for `localhost` and `127.0.0.1` (`security.allowedHost
 | Command                  | What it runs                                                           |
 | ------------------------ | ---------------------------------------------------------------------- |
 | `npm test`               | Angular component specs (`src/**/*.spec.ts`) with Vitest and jsdom     |
+| `npm run lint`           | ESLint (angular-eslint), including template accessibility rules        |
 | `npm run test:server`    | Type-check, then Node API tests (`src/api/**/*.test.ts`) via supertest |
 | `npm run test:server:it` | The API tests plus `*.it.test.ts`, which run the real `gormcsv` binary |
 
@@ -165,7 +166,8 @@ CI runs it against a Postgres service container.
 Before committing:
 
 ```bash
-npm test -- --watch=false && npm run test:server && npx prettier --check . && npm run build
+npm run lint && npm test -- --watch=false && npm run test:server && npx prettier --check . && \
+  npm run build
 ```
 
 CI (`.github/workflows/test.yml`) runs the same checks on every push and pull request. A second

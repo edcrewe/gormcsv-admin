@@ -16,7 +16,7 @@ real-build and real-Postgres integration tests).
 **Open gormcsv branch `rows-command` (`e44e9ff`)**: the Rows tab needs it. Merge it before
 pushing the admin; CI builds gormcsv master.
 
-**Remaining "Later" items, in progress:** ESLint in CI, `samples/` CSVs, a
+**Remaining "Later" items, in progress:** `samples/` CSVs, a
 `gormcsv-admin` bin entry, README screenshots. The schema editor is deferred.
 
 Notes for picking up:
@@ -80,6 +80,7 @@ Project-specific:
 - Security: bind to `127.0.0.1` by default. The server owns DSNs (the browser never sends one).
   Sanitise uploaded filenames. Validate table and column names against the real schema before
   using them in SQL.
+- Lint: `npm run lint` (angular-eslint, with template accessibility rules) runs in CI.
 - Tests:
   - `*.spec.ts`: Angular specs, run with `npm test` (vitest + jsdom). Use `HttpTestingController`
     for HTTP.
@@ -168,7 +169,6 @@ Project-specific:
 ### Later
 
 - Schema editor to override inferred types before generating models.
-- ESLint. GitHub Actions CI is done: `.github/workflows/test.yml`.
 - `npx gormcsv-admin` bin entry.
 - `samples/` with example CSVs.
 - README and screenshots.
