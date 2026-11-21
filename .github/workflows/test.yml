@@ -37,11 +37,12 @@ jobs:
       - name: Angular specs
         run: npm test -- --watch=false
 
-      - name: API tests
-        run: npm run test:server
-
+      # Before the API tests, so the bin test can start the built server.
       - name: Build
         run: npm run build
+
+      - name: API tests
+        run: npm run test:server
 
   integration:
     name: API tests against the real gormcsv

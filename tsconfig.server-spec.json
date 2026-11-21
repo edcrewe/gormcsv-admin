@@ -5,5 +5,5 @@
     "noEmit": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/api/**/*.ts"]
+  "include": ["src/api/**/*.ts", "bin/**/*.ts"]
 }
