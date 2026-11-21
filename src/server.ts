@@ -20,6 +20,7 @@ import { join } from 'node:path';
 import { createApiRouter } from './api/api-router';
 import { createCommandRunner, createExecRunner } from './api/commands';
 import { databaseFromEnv } from './api/database';
+import { HistoryLog } from './api/history';
 import { ModelWorkspace } from './api/workspace';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
@@ -50,6 +51,7 @@ app.use(
     runner: createExecRunner({ binary: env['GORMCSV_BIN'], run }),
     workspace,
     database,
+    history: new HistoryLog(join(workspaceDir, 'history.jsonl')),
   }),
 );
 

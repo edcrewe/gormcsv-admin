@@ -11,11 +11,15 @@
 import express, { Request, Response, Router } from 'express';
 import type { ImportRequest } from '../shared/api-types';
 import { errorMessage } from './commands';
+import { databaseInfo } from './database';
+import { HistoryLog } from './history';
 import { sendWorkspaceError } from './models';
 import { ModelWorkspace, WorkspaceError } from './workspace';
 
 export interface ImportDeps {
   workspace: ModelWorkspace;
+  /** Records each import when provided. */
+  history?: HistoryLog;
 }
 
 export const BATCH_SIZE_RANGE = { min: 1, max: 100_000 };
@@ -43,7 +47,7 @@ export function parseImportRequest(body: unknown): ImportRequest | string {
   } as ImportRequest;
 }
 
-export function createImportRouter({ workspace }: ImportDeps): Router {
+export function createImportRouter({ workspace, history }: ImportDeps): Router {
   const router = Router();
 
   router.post('/', express.json(), async (req: Request, res: Response) => {
@@ -52,9 +56,26 @@ export function createImportRouter({ workspace }: ImportDeps): Router {
       res.status(400).json({ ok: false, error: parsed });
       return;
     }
+    const file = parsed.file && { file: parsed.file };
     try {
-      res.json(await workspace.populate(parsed));
+      const result = await workspace.populate(parsed);
+      await history?.record({
+        action: 'import',
+        outcome: result.complete ? 'ok' : 'partial',
+        ...file,
+        database: result.database,
+        totals: result.totals,
+        ...(result.errors.length && { errors: result.errors }),
+      });
+      res.json(result);
     } catch (err: unknown) {
+      await history?.record({
+        action: 'import',
+        outcome: 'failed',
+        ...file,
+        database: databaseInfo(workspace.database),
+        message: errorMessage(err),
+      });
       if (err instanceof WorkspaceError) {
         sendWorkspaceError(res, err);
         return;

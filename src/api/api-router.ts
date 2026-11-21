@@ -11,6 +11,7 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import type { HealthStatus } from '../shared/api-types';
 import { CommandError, GormcsvRunner, errorMessage } from './commands';
+import { HistoryLog, createHistoryRouter } from './history';
 import { createImportRouter } from './import-route';
 import { InspectDeps, createInspectRouter } from './inspect';
 import { DatabaseConfig } from './database';
@@ -27,6 +28,8 @@ export interface ApiDeps {
   upload?: UploadOptions;
   /** Enables /api/tables when provided. */
   database?: DatabaseConfig;
+  /** Enables /api/history, and records registrations and imports, when provided. */
+  history?: HistoryLog;
 }
 
 export function createApiRouter({
@@ -35,6 +38,7 @@ export function createApiRouter({
   workspace,
   upload = {},
   database,
+  history,
 }: ApiDeps): Router {
   const router = Router();
 
@@ -57,8 +61,11 @@ export function createApiRouter({
 
   router.use('/inspect', createInspectRouter({ runner, ...upload, ...inspect }));
   if (workspace) {
-    router.use('/models', createModelsRouter({ workspace, ...upload }));
-    router.use('/import', createImportRouter({ workspace }));
+    router.use('/models', createModelsRouter({ workspace, history, ...upload }));
+    router.use('/import', createImportRouter({ workspace, history }));
+  }
+  if (history) {
+    router.use('/history', createHistoryRouter({ history }));
   }
   if (database) {
     router.use('/tables', createTablesRouter({ runner, database }));

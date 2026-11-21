@@ -15,7 +15,7 @@ export const serverRoutes: ServerRoute[] = [
   // Live database contents, so rendered in the browser like Models.
   { path: 'tables', renderMode: RenderMode.Client },
   { path: 'tables/:name', renderMode: RenderMode.Client },
-  { path: 'history', renderMode: RenderMode.Prerender },
+  { path: 'history', renderMode: RenderMode.Client },
   // Unknown paths can't be prerendered, so render the not-found page on request with a real 404.
   { path: '**', renderMode: RenderMode.Server, status: 404 },
 ];

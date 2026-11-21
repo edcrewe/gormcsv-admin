@@ -11,10 +11,13 @@ import { Request, Response, Router } from 'express';
 import type { DuplicateRule } from '../shared/api-types';
 import { errorMessage } from './commands';
 import { CsvUploadRequest, UploadOptions, csvUpload } from './upload';
-import { ModelWorkspace, WorkspaceError, WorkspaceErrorKind } from './workspace';
+import { HistoryLog } from './history';
+import { ModelWorkspace, WorkspaceError, WorkspaceErrorKind, modelKey } from './workspace';
 
 export interface ModelsDeps extends UploadOptions {
   workspace: ModelWorkspace;
+  /** Records each registration when provided. */
+  history?: HistoryLog;
 }
 
 /** HTTP status for each WorkspaceError kind; also used by the import route. */
@@ -31,7 +34,7 @@ export function sendWorkspaceError(res: Response, err: WorkspaceError): void {
   res.status(STATUS_FOR[err.kind]).json(body);
 }
 
-export function createModelsRouter({ workspace, ...uploadOptions }: ModelsDeps): Router {
+export function createModelsRouter({ workspace, history, ...uploadOptions }: ModelsDeps): Router {
   const router = Router();
 
   router.get('/', async (_req: Request, res: Response) => {
@@ -54,8 +57,22 @@ export function createModelsRouter({ workspace, ...uploadOptions }: ModelsDeps):
       return;
     }
     try {
-      res.json(await workspace.register(file.path, file.filename, duplicates));
+      const result = await workspace.register(file.path, file.filename, duplicates);
+      await history?.record({
+        action: 'register',
+        outcome: 'ok',
+        file: file.filename,
+        message: `Duplicates: ${ruleSummary(result.status.duplicates[modelKey(file.filename)])}`,
+        ...(result.warnings.length && { errors: result.warnings }),
+      });
+      res.json(result);
     } catch (err: unknown) {
+      await history?.record({
+        action: 'register',
+        outcome: 'failed',
+        file: file.filename,
+        message: errorMessage(err),
+      });
       if (err instanceof WorkspaceError) {
         const body = {
           ok: false,
@@ -91,4 +108,11 @@ export function parseDuplicateRule(body: unknown): DuplicateRule | undefined | s
   // gormcsv's --key joins columns with +, so a heading containing + cannot be a key.
   if (columns.some((c) => c.includes('+'))) return 'Key columns cannot contain +';
   return { mode: 'key', columns };
+}
+
+/** A duplicate rule in a few words, for the history log. */
+export function ruleSummary(rule: DuplicateRule | undefined): string {
+  if (!rule || rule.mode === 'allow') return 'imported again';
+  if (rule.mode === 'identical') return 'identical rows skipped';
+  return `key on ${rule.columns.join(' + ')}`;
 }

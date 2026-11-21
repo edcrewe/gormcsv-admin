@@ -7,7 +7,7 @@
  * The table's columns come from the response, so one component shows any table.
  */
 
-import { Component, computed, inject, input, numberAttribute } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
@@ -15,16 +15,13 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 import { RowsPage, isApiError } from '../../../shared/api-types';
-
-export const PAGE_SIZES = [10, 25, 50, 100];
-const DEFAULT_SIZE = 25;
-
-/** Query values arrive as strings; anything unusable falls back to the default. */
-const pageIndex = (value: unknown) => Math.max(0, Math.trunc(numberAttribute(value, 0)));
-const pageSize = (value: unknown) => {
-  const size = numberAttribute(value, DEFAULT_SIZE);
-  return PAGE_SIZES.includes(size) ? size : DEFAULT_SIZE;
-};
+import {
+  DEFAULT_PAGE_SIZE,
+  PAGE_SIZES,
+  pageIndex,
+  pageParams,
+  pageSize,
+} from '../../shared/paging';
 
 @Component({
   selector: 'app-table-rows',
@@ -38,7 +35,7 @@ export class TableRows {
   readonly table = input.required<string>();
   /** Zero-based, as mat-paginator counts. */
   readonly page = input(0, { transform: pageIndex });
-  readonly size = input(DEFAULT_SIZE, { transform: pageSize });
+  readonly size = input(DEFAULT_PAGE_SIZE, { transform: pageSize });
   readonly sort = input<string>();
   /** asc or desc; named so it does not clash with the CDK's [dir] directive. */
   readonly direction = input<string>();
@@ -82,10 +79,7 @@ export class TableRows {
   }
 
   protected onPage(event: PageEvent): void {
-    this.navigate({
-      page: event.pageIndex || null,
-      size: event.pageSize === DEFAULT_SIZE ? null : event.pageSize,
-    });
+    this.navigate(pageParams(event.pageIndex, event.pageSize));
   }
 
   /** Changes the query; null removes a parameter, keeping URLs short for the defaults. */

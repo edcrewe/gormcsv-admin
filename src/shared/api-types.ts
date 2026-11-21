@@ -162,6 +162,33 @@ export interface RowsPage {
   desc: boolean;
 }
 
+/** One registration or import, as logged in the workspace's history.jsonl. */
+export interface HistoryEntry {
+  /** ISO time the action finished. */
+  at: string;
+  action: 'register' | 'import';
+  /** ok; partial for an import that rejected rows; failed when nothing was done. */
+  outcome: 'ok' | 'partial' | 'failed';
+  /** The CSV registered or imported; absent for an import of every registered CSV. */
+  file?: string;
+  /** Imports only: where the rows went, password masked. */
+  database?: DatabaseInfo;
+  /** Imports only. */
+  totals?: { inserted: number; duplicates: number; rejected: number };
+  /** The error for a failure, or a short summary, e.g. the duplicate rule registered. */
+  message?: string;
+  /** The first row errors or warnings. */
+  errors?: string[];
+}
+
+export interface HistoryPage {
+  /** Newest first. */
+  entries: HistoryEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export function isApiError(value: unknown): value is ApiError {
   return (
     typeof value === 'object' &&

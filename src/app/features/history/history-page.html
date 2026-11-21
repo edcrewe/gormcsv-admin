@@ -1,0 +1,103 @@
+<div class="heading">
+  <h2>Import history</h2>
+  <button matButton type="button" [disabled]="history.isLoading()" (click)="reload()">
+    <mat-icon aria-hidden="true">refresh</mat-icon>
+    Refresh
+  </button>
+</div>
+<p>Every model registration and import, newest first.</p>
+
+@if (history.isLoading()) {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading history" />
+}
+
+@if (loadError(); as message) {
+  <p class="error" role="alert">{{ message }}</p>
+}
+
+@if (data(); as data) {
+  @if (data.total === 0) {
+    <p>
+      Nothing yet. Register a CSV on the <a routerLink="/import">Import CSV</a> page to start the
+      log.
+    </p>
+  } @else {
+    <table mat-table [dataSource]="data.entries">
+      <caption>
+        {{
+          data.total
+        }}
+        {{
+          data.total === 1 ? 'entry' : 'entries'
+        }}
+      </caption>
+      <ng-container matColumnDef="at">
+        <th mat-header-cell *matHeaderCellDef scope="col">When</th>
+        <td mat-cell *matCellDef="let entry">
+          <time [attr.datetime]="entry.at">{{ entry.at | date: 'd MMM y, HH:mm:ss' }}</time>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="action">
+        <th mat-header-cell *matHeaderCellDef scope="col">Action</th>
+        <td mat-cell *matCellDef="let entry">
+          {{ entry.action === 'register' ? 'Registered' : 'Imported' }}
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="file">
+        <th mat-header-cell *matHeaderCellDef scope="col">CSV</th>
+        <td mat-cell *matCellDef="let entry">{{ entry.file ?? 'All registered CSVs' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="outcome">
+        <th mat-header-cell *matHeaderCellDef scope="col">Outcome</th>
+        <td mat-cell *matCellDef="let entry">
+          <span class="outcome" [class]="entry.outcome">
+            <mat-icon aria-hidden="true">{{ icon(entry) }}</mat-icon>
+            {{ entry.outcome }}
+          </span>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="rows">
+        <th mat-header-cell *matHeaderCellDef scope="col">Rows</th>
+        <td mat-cell *matCellDef="let entry">{{ rows(entry) }}</td>
+      </ng-container>
+      <ng-container matColumnDef="details">
+        <th mat-header-cell *matHeaderCellDef scope="col">Details</th>
+        <td mat-cell *matCellDef="let entry">
+          @if (entry.message) {
+            <span>{{ entry.message }}</span>
+          }
+          @if (entry.database) {
+            <span class="database"
+              >{{ entry.database.driver }} <code>{{ entry.database.dsn }}</code></span
+            >
+          }
+          @if (entry.errors?.length) {
+            <details>
+              <summary>
+                {{ entry.errors.length }} {{ entry.errors.length === 1 ? 'message' : 'messages' }}
+              </summary>
+              <ul>
+                @for (error of entry.errors; track $index) {
+                  <li>
+                    <code>{{ error }}</code>
+                  </li>
+                }
+              </ul>
+            </details>
+          }
+        </td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+    <mat-paginator
+      [length]="data.total"
+      [pageIndex]="page()"
+      [pageSize]="size()"
+      [pageSizeOptions]="pageSizes"
+      showFirstLastButtons
+      (page)="onPage($event)"
+      aria-label="Pages of the history"
+    />
+  }
+}
