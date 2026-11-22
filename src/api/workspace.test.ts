@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { CommandError, CommandRunner, RunOptions } from './commands';
-import { ModelWorkspace, WorkspaceError, modelKey, ruleFlags } from './workspace';
+import { ModelWorkspace, WorkspaceError, hideDir, modelKey, ruleFlags } from './workspace';
 
 const UPSTREAM_MODELS = '// upstream models.go\npackage importcsv\n';
 const VERSION = 'v0.3.1-4-g5ad9de4-dirty';
@@ -48,6 +48,8 @@ interface FakeOptions {
   warn?: string[];
   buildError?: CommandError;
   buildDelayMs?: number;
+  /** Runs after a successful fake build, to break what comes next. */
+  afterBuild?: () => Promise<void>;
   describeFails?: boolean;
   /** A built binary whose importcsv predates GORMCSV_DSN. */
   oldImportcsv?: boolean;
@@ -138,6 +140,7 @@ function fakeTools(options: FakeOptions = {}) {
         if (options.buildError) throw options.buildError;
         builds++;
         await writeFile(args[args.indexOf('-o') + 1], `binary build ${builds}`);
+        await options.afterBuild?.();
         return { stdout: '', stderr: '' };
       } finally {
         building--;
@@ -258,7 +261,17 @@ describe('ModelWorkspace.register', () => {
       binary: { version: VERSION },
     });
     expect(Date.parse(result.status.binary!.builtAt)).not.toBeNaN();
-    expect(existsSync(join(dir, 'bin', 'gormcsv.next'))).toBe(false);
+    expect((await readdir(join(dir, 'bin'))).sort()).toEqual(['gormcsv', 'models.json']);
+  });
+
+  it('leaves only the new binary and models after replacing a build', async () => {
+    const workspace = workspaceWith(fakeTools());
+    await workspace.register(await upload('users.csv'), 'users.csv');
+
+    await workspace.register(await upload('orders.csv'), 'orders.csv');
+
+    expect((await readdir(join(dir, 'bin'))).sort()).toEqual(['gormcsv', 'models.json']);
+    expect(await readFile(join(dir, 'bin', 'gormcsv'), 'utf8')).toBe('binary build 2');
   });
 
   it('builds every registered model into the binary', async () => {
@@ -334,6 +347,7 @@ describe('ModelWorkspace.register rollback', () => {
       before: {
         models: await readFile(modelsGo(), 'utf8'),
         binary: await readFile(join(dir, 'bin', 'gormcsv'), 'utf8'),
+        builtModels: await readFile(join(dir, 'bin', 'models.json'), 'utf8'),
         status: await workspace.status(),
       },
     };
@@ -347,7 +361,10 @@ describe('ModelWorkspace.register rollback', () => {
     expect(await readFile(join(dir, 'csv', 'users.csv'), 'utf8')).toBe('original\n');
     expect(await readFile(modelsGo(), 'utf8')).toBe(before.models);
     expect(await readFile(join(dir, 'bin', 'gormcsv'), 'utf8')).toBe(before.binary);
-    expect(existsSync(join(dir, 'bin', 'gormcsv.next'))).toBe(false);
+    expect(await readFile(join(dir, 'bin', 'models.json'), 'utf8')).toBe(before.builtModels);
+    for (const leftover of ['gormcsv.next', 'models.json.next', 'gormcsv.prev']) {
+      expect(existsSync(join(dir, 'bin', leftover))).toBe(false);
+    }
     expect(await workspace.status()).toEqual(before.status);
   }
 
@@ -383,6 +400,41 @@ describe('ModelWorkspace.register rollback', () => {
     expect(details).toHaveLength(40);
     expect(details[0]).toBe('line 21');
     expect(details.at(-1)).toBe('line 60');
+    await expectUnchanged(workspace, before);
+  });
+
+  it('puts the previous binary back when the swap fails part-way', async () => {
+    const { workspace, before } = await registeredUsers(fakeTools());
+    // A directory where the live models.json would be kept aside: the binary has been swapped
+    // by the time that move fails.
+    const blocker = join(dir, 'bin', 'models.json.prev');
+    const failing = fakeTools({
+      afterBuild: async () => {
+        await mkdir(blocker);
+        await writeFile(join(blocker, 'x'), '');
+      },
+    });
+
+    const err = await new ModelWorkspace({ dir, srcDir, run: failing.run })
+      .register(await upload('orders.csv'), 'orders.csv')
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(Error);
+    await rm(blocker, { recursive: true });
+    await expectUnchanged(workspace, before);
+  });
+
+  it('puts the previous binary back when the new status cannot be read', async () => {
+    const { workspace, before } = await registeredUsers(fakeTools());
+    const failing = fakeTools({
+      afterBuild: () => writeFile(join(dir, 'duplicates.json'), '{ not json'),
+    });
+
+    const err = await new ModelWorkspace({ dir, srcDir, run: failing.run })
+      .register(await upload('orders.csv'), 'orders.csv')
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(SyntaxError);
     await expectUnchanged(workspace, before);
   });
 
@@ -792,6 +844,21 @@ describe('ModelWorkspace duplicate rules', () => {
       .catch(() => undefined);
 
     expect((await workspace.status()).duplicates).toEqual({ users: { mode: 'identical' } });
+  });
+});
+
+describe('hideDir', () => {
+  it('removes the directory from paths with either separator', () => {
+    expect(hideDir('/ws/csv/users.csv row 3: bad', '/ws/csv')).toBe('users.csv row 3: bad');
+    expect(hideDir('open "C:\\ws\\csv\\users.csv": denied', 'C:\\ws\\csv')).toBe(
+      'open "users.csv": denied',
+    );
+  });
+
+  it('leaves other paths, and the directory without a separator, alone', () => {
+    expect(hideDir('/ws/csv-old/a.csv and /ws/csv', '/ws/csv')).toBe(
+      '/ws/csv-old/a.csv and /ws/csv',
+    );
   });
 });
 

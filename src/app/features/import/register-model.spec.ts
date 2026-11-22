@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { RegisterResult } from '../../../shared/api-types';
+import { RegisterResult, WorkspaceStatus } from '../../../shared/api-types';
 import { RegisterModel } from './register-model';
 import { expectNoAxeViolations } from '../../../testing/axe';
 
@@ -22,6 +22,14 @@ const RESULT: RegisterResult = {
   },
 };
 
+/** The workspace before Country is registered. */
+const UNREGISTERED: WorkspaceStatus = { ...RESULT.status, files: [], models: [], binary: null };
+
+/** The workspace with Country registered under a rule. */
+function registeredWith(rule: WorkspaceStatus['duplicates'][string]): WorkspaceStatus {
+  return { ...RESULT.status, duplicates: { country: rule } };
+}
+
 describe('RegisterModel', () => {
   let httpTesting: HttpTestingController;
 
@@ -35,12 +43,22 @@ describe('RegisterModel', () => {
 
   afterEach(() => httpTesting.verify());
 
-  async function render() {
+  /** Renders, then answers the workspace status request (pass null to leave it pending). */
+  async function render(workspace: WorkspaceStatus | 'error' | null = UNREGISTERED) {
     const fixture = TestBed.createComponent(RegisterModel);
     fixture.componentRef.setInput('file', new File(['a\n'], 'Country.csv'));
     fixture.componentRef.setInput('modelName', 'Country');
+    fixture.componentRef.setInput('modelKey', 'country');
     fixture.componentRef.setInput('columns', ['name', 'code', 'alias']);
-    await fixture.whenStable();
+    fixture.detectChanges();
+    await Promise.resolve();
+    const statusRequest = httpTesting.expectOne({ method: 'GET', url: '/api/models' });
+    if (workspace === 'error') {
+      statusRequest.flush({ ok: false, error: 'EACCES' }, { status: 500, statusText: 'Error' });
+    } else if (workspace) {
+      statusRequest.flush(workspace);
+    }
+    if (workspace) await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
     const button = () =>
       Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.includes('Register'))!;
@@ -63,7 +81,23 @@ describe('RegisterModel', () => {
       const body = req.request.body as FormData;
       return { duplicates: body.get('duplicates'), keyColumns: body.getAll('keyColumn') };
     };
-    return { fixture, el, button, register, chooseMode, toggleColumn, sentFields };
+    const checked = () => ({
+      mode: el.querySelector<HTMLInputElement>('mat-radio-button input:checked')?.value,
+      keyColumns: Array.from(el.querySelectorAll('.key-columns mat-checkbox'))
+        .filter((c) => c.querySelector<HTMLInputElement>('input')!.checked)
+        .map((c) => c.textContent?.trim()),
+    });
+    return {
+      fixture,
+      el,
+      button,
+      register,
+      chooseMode,
+      toggleColumn,
+      sentFields,
+      checked,
+      statusRequest,
+    };
   }
 
   it('offers to register the inspected model and explains the rebuild', async () => {
@@ -80,7 +114,7 @@ describe('RegisterModel', () => {
 
     await register();
 
-    httpTesting.expectOne('/api/models');
+    httpTesting.expectOne({ method: 'POST', url: '/api/models' });
     expect(el.querySelector('mat-progress-bar')?.getAttribute('aria-label')).toBe(
       'Building gormcsv',
     );
@@ -141,15 +175,81 @@ describe('RegisterModel', () => {
     expect(el.querySelector('details')).toBeNull();
   });
 
-  it('imports duplicates again by default and says so to the server', async () => {
+  it('imports duplicates again by default, leaving an unchanged rule to the server', async () => {
     const { el, register, sentFields } = await render();
 
     expect(el.querySelector('mat-radio-button[value="allow"] input:checked')).not.toBeNull();
     expect(el.querySelector('.key-columns')).toBeNull();
+    expect(el.querySelector('.current-rule')).toBeNull();
+    await register();
+
+    const req = httpTesting.expectOne('/api/models');
+    expect(sentFields(req)).toEqual({ duplicates: null, keyColumns: [] });
+    req.flush(RESULT);
+  });
+
+  it('starts from the rule of an already registered model, and keeps it unless changed', async () => {
+    const { el, register, sentFields, checked } = await render(
+      registeredWith({ mode: 'key', columns: ['code'] }),
+    );
+
+    expect(el.querySelector('.current-rule')?.textContent).toContain(
+      'Country is already registered, and duplicates are skipped when code matches',
+    );
+    expect(checked()).toEqual({ mode: 'key', keyColumns: ['code'] });
+    await register();
+
+    // Nothing sent, so the server keeps the rule it has.
+    const req = httpTesting.expectOne('/api/models');
+    expect(sentFields(req)).toEqual({ duplicates: null, keyColumns: [] });
+    req.flush(RESULT);
+  });
+
+  it('sends a changed rule for a registered model, including back to allow', async () => {
+    const { register, chooseMode, sentFields } = await render(
+      registeredWith({ mode: 'identical' }),
+    );
+
+    await chooseMode('allow');
     await register();
 
     const req = httpTesting.expectOne('/api/models');
     expect(sentFields(req)).toEqual({ duplicates: 'allow', keyColumns: [] });
+    req.flush(RESULT);
+  });
+
+  it('drops key columns the new CSV lacks and asks for one', async () => {
+    const { el, button, checked } = await render(registeredWith({ mode: 'key', columns: ['iso'] }));
+
+    expect(checked()).toEqual({ mode: 'key', keyColumns: [] });
+    expect(el.querySelector('.key-columns .hint')?.textContent).toContain('at least one');
+    expect(button().disabled).toBe(true);
+  });
+
+  it('waits for the current rule before the choice can be changed', async () => {
+    const { fixture, el, statusRequest, checked } = await render(null);
+    fixture.detectChanges();
+    const allow = () =>
+      el.querySelector<HTMLInputElement>('mat-radio-button[value="allow"] input')!;
+
+    expect(el.textContent).toContain('Checking whether Country is already registered');
+    expect(allow().disabled).toBe(true);
+
+    statusRequest.flush(registeredWith({ mode: 'identical' }));
+    await fixture.whenStable();
+
+    expect(allow().disabled).toBe(false);
+    expect(checked().mode).toBe('identical');
+  });
+
+  it('never resets a rule when the workspace cannot be read', async () => {
+    const { el, register, sentFields } = await render('error');
+
+    expect(el.querySelector('mat-radio-button[value="allow"] input:checked')).not.toBeNull();
+    await register();
+
+    const req = httpTesting.expectOne('/api/models');
+    expect(sentFields(req)).toEqual({ duplicates: null, keyColumns: [] });
     req.flush(RESULT);
   });
 
