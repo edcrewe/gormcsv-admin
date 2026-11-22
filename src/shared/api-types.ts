@@ -148,11 +148,17 @@ export interface TablesResponse {
   tables: TableInfo[];
 }
 
+/**
+ * One value in a table row. Integers too large for a JavaScript number to hold exactly arrive as
+ * strings of digits, so they are shown as stored.
+ */
+export type Cell = string | number | boolean | null;
+
 /** One page of a table (from `gormcsv rows --json`). Each row has a value per column, in order. */
 export interface RowsPage {
   table: string;
   columns: string[];
-  rows: unknown[][];
+  rows: Cell[][];
   /** Every row in the table, for paging. */
   total: number;
   limit: number;

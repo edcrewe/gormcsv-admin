@@ -175,9 +175,10 @@ Project-specific:
    it; the binary and `models.json` swap in together and are restored together on any later
    failure; workspace paths are hidden with either separator. A tag push builds a release archive
    and SBOM (`.github/workflows/release.yml`).
-3. API boundary: one bounded paging parser for rows and history, an empty-page message,
-   deeper checks on gormcsv's JSON (including string integers), and per-command flag state in
-   gormcsv.
+3. API boundary (done): one paging parser (`src/api/paging.ts`) for rows and history, with
+   offsets capped at `MAX_OFFSET` on both sides; a message for a page past the end; every gormcsv
+   JSON report checked all the way down in `gormcsv-json.ts`, including row widths and
+   string-integer cells; and a fresh command tree per run in gormcsv, so flags cannot carry over.
 4. Cleanup: the committed `gormcsv/cmd/gormcsv.db`, ignoring generated databases, README updates.
 
 ### Later

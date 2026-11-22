@@ -3,7 +3,7 @@ import request from 'supertest';
 import { createApiRouter } from './api-router';
 import { CommandError, GormcsvRunner } from './commands';
 import { DatabaseConfig } from './database';
-import { parseRowsQuery, parseRowsReport, parseTablesReport } from './tables';
+import { parseRowsQuery } from './tables';
 
 const TABLE = {
   name: 'countries',
@@ -21,22 +21,6 @@ function appWith(runner: GormcsvRunner, database: DatabaseConfig = POSTGRES) {
   app.use('/api', createApiRouter({ runner, database }));
   return app;
 }
-
-describe('parseTablesReport', () => {
-  it('accepts a report of tables', () => {
-    expect(parseTablesReport(JSON.stringify({ tables: [TABLE] }))).toEqual([TABLE]);
-    expect(parseTablesReport('{"tables": []}')).toEqual([]);
-  });
-
-  it.each([
-    ['text output', 'countries: 245 rows, 19 columns\n'],
-    ['no tables list', '{}'],
-    ['a table without rows', '{"tables": [{"name": "x", "columns": [], "indexes": []}]}'],
-    ['a table without indexes', '{"tables": [{"name": "x", "rows": 1, "columns": []}]}'],
-  ])('rejects %s', (_label, stdout) => {
-    expect(parseTablesReport(stdout)).toBeNull();
-  });
-});
 
 describe('GET /api/tables', () => {
   it('runs gormcsv tables with the DSN in the environment and returns the masked database', async () => {
@@ -150,26 +134,12 @@ describe('parseRowsQuery', () => {
     [{ limit: '1001' }, 'limit must be a whole number from 1 to 1000'],
     [{ limit: '2.5' }, 'limit must be a whole number from 1 to 1000'],
     [{ limit: ['1', '2'] }, 'limit must be a whole number from 1 to 1000'],
-    [{ offset: '-1' }, 'offset must be a whole number, 0 or more'],
+    [{ offset: '-1' }, 'offset must be a whole number from 0 to 2147483647'],
     [{ sort: '' }, 'sort must name a column'],
     [{ sort: ['a', 'b'] }, 'sort must name a column'],
     [{ dir: 'up' }, 'dir must be asc or desc'],
   ])('rejects %j', (query, message) => {
     expect(parseRowsQuery(query)).toBe(message);
-  });
-});
-
-describe('parseRowsReport', () => {
-  it('accepts a page', () => {
-    expect(parseRowsReport(JSON.stringify(PAGE))).toEqual(PAGE);
-  });
-
-  it.each([
-    ['text', 'id name'],
-    ['rows that are not lists', JSON.stringify({ ...PAGE, rows: [{ id: 1 }] })],
-    ['no total', JSON.stringify({ ...PAGE, total: undefined })],
-  ])('rejects %s', (_label, stdout) => {
-    expect(parseRowsReport(stdout)).toBeNull();
   });
 });
 

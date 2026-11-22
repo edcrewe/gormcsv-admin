@@ -3,16 +3,18 @@
  * table. They run `gormcsv tables --json` and `gormcsv rows --json`, which read the database
  * through GORM, so SQLite, Postgres and MySQL all work without a database driver in Node. The
  * connection goes in GORMCSV_DSN, as for imports, so the password stays out of the process list
- * and out of the response, which only carries the masked DSN. Reports are shape-checked, and a
- * gormcsv without the command gets a clear "too old". Paging values are validated here; table
+ * and out of the response, which only carries the masked DSN. Reports are shape-checked
+ * (gormcsv-json.ts), and a gormcsv without the command, or with a different report, gets a 503. Paging values are validated here; table
  * and column names are checked by gormcsv against the database's own catalogue, the only
  * reliable list of what exists, and arrive as arguments with no shell in between.
  */
 
 import { Request, Response, Router } from 'express';
-import type { RowsPage, TableInfo, TablesResponse } from '../shared/api-types';
+import type { TablesResponse } from '../shared/api-types';
 import { CommandError, GormcsvRunner, errorMessage } from './commands';
 import { DatabaseConfig, databaseInfo, scrub } from './database';
+import { ReportError, parseRowsReport, parseTablesReport } from './gormcsv-json';
+import { parsePaging } from './paging';
 
 export interface TablesDeps {
   runner: GormcsvRunner;
@@ -39,59 +41,15 @@ export interface RowsRequest {
 
 /** Reads ?limit, ?offset, ?sort and ?dir, or returns a message saying what is wrong. */
 export function parseRowsQuery(query: Record<string, unknown>): RowsRequest | string {
-  const whole = (value: unknown, fallback: number) => {
-    if (value === undefined) return fallback;
-    return typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : NaN;
-  };
-  const limit = whole(query['limit'], DEFAULT_LIMIT);
-  const offset = whole(query['offset'], 0);
-  if (!(limit >= 1 && limit <= MAX_LIMIT)) {
-    return `limit must be a whole number from 1 to ${MAX_LIMIT}`;
-  }
-  if (!(offset >= 0)) return 'offset must be a whole number, 0 or more';
+  const paging = parsePaging(query, { defaultLimit: DEFAULT_LIMIT, maxLimit: MAX_LIMIT });
+  if (typeof paging === 'string') return paging;
   const sort = query['sort'];
   if (sort !== undefined && (typeof sort !== 'string' || sort === '')) {
     return 'sort must name a column';
   }
   const dir = query['dir'] ?? 'asc';
   if (dir !== 'asc' && dir !== 'desc') return 'dir must be asc or desc';
-  return { limit, offset, desc: dir === 'desc', ...(typeof sort === 'string' && { sort }) };
-}
-
-function parseJson(stdout: string): unknown {
-  try {
-    return JSON.parse(stdout);
-  } catch {
-    return null;
-  }
-}
-
-/** Validates `gormcsv tables --json` output. */
-export function parseTablesReport(stdout: string): TableInfo[] | null {
-  const tables = (parseJson(stdout) as { tables?: unknown } | null)?.tables;
-  if (!Array.isArray(tables)) return null;
-  const valid = tables.every(
-    (t) =>
-      typeof t === 'object' &&
-      t !== null &&
-      typeof t.name === 'string' &&
-      typeof t.rows === 'number' &&
-      Array.isArray(t.columns) &&
-      Array.isArray(t.indexes),
-  );
-  return valid ? (tables as TableInfo[]) : null;
-}
-
-/** Validates `gormcsv rows --json` output. */
-export function parseRowsReport(stdout: string): RowsPage | null {
-  const page = parseJson(stdout) as Partial<RowsPage> | null;
-  const valid =
-    typeof page?.table === 'string' &&
-    Array.isArray(page.columns) &&
-    Array.isArray(page.rows) &&
-    page.rows.every((row) => Array.isArray(row)) &&
-    typeof page.total === 'number';
-  return valid ? (page as RowsPage) : null;
+  return { ...paging, desc: dir === 'desc', ...(typeof sort === 'string' && { sort }) };
 }
 
 export function createTablesRouter({ runner, database }: TablesDeps): Router {
@@ -101,12 +59,10 @@ export function createTablesRouter({ runner, database }: TablesDeps): Router {
   router.get('/', async (_req: Request, res: Response) => {
     try {
       const { stdout } = await runner(['tables', '--driver', database.driver, '--json'], { env });
-      const tables = parseTablesReport(stdout);
-      if (!tables) {
-        res.status(503).json({ ok: false, error: TOO_OLD.tables });
-        return;
-      }
-      const body: TablesResponse = { database: databaseInfo(database), tables };
+      const body: TablesResponse = {
+        database: databaseInfo(database),
+        tables: parseTablesReport(stdout),
+      };
       res.json(body);
     } catch (err: unknown) {
       sendCommandError(res, err, 'tables', database);
@@ -130,12 +86,7 @@ export function createTablesRouter({ runner, database }: TablesDeps): Router {
       '--json',
     ].flat();
     try {
-      const page = parseRowsReport((await runner(args, { env })).stdout);
-      if (!page) {
-        res.status(503).json({ ok: false, error: TOO_OLD.rows });
-        return;
-      }
-      res.json(page);
+      res.json(parseRowsReport((await runner(args, { env })).stdout));
     } catch (err: unknown) {
       // gormcsv says "no table ..." or "no column ..." for names the catalogue lacks.
       const message = err instanceof CommandError ? err.cliMessage : '';
@@ -160,6 +111,9 @@ function sendCommandError(
 ): void {
   if (err instanceof CommandError && err.stderr.includes(`unknown command "${command}"`)) {
     res.status(503).json({ ok: false, error: TOO_OLD[command] });
+  } else if (err instanceof ReportError) {
+    // Output that is not the report this admin expects: a different or older gormcsv.
+    res.status(503).json({ ok: false, error: err.message });
   } else if (err instanceof CommandError && !err.timedOut && err.exitCode !== null) {
     // Typically the database cannot be reached; the driver's message says why.
     res.status(502).json({ ok: false, error: scrub(err.cliMessage, database) });

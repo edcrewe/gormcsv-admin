@@ -14,7 +14,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
-import { RowsPage, isApiError } from '../../../shared/api-types';
+import { Cell, RowsPage, isApiError } from '../../../shared/api-types';
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZES,
@@ -66,6 +66,10 @@ export class TableRows {
   protected readonly range = computed(() => {
     const data = this.data();
     if (!data || data.total === 0) return 'No rows';
+    // A page past the end, from a bookmark or a typed URL, or after rows were deleted.
+    if (data.rows.length === 0) {
+      return `No rows on this page; the table has ${data.total}. Use First page to go back.`;
+    }
     const first = data.offset + 1;
     return `Rows ${first}–${data.offset + data.rows.length} of ${data.total}`;
   });
@@ -87,8 +91,7 @@ export class TableRows {
     void this.router.navigate([], { queryParams, queryParamsHandling: 'merge' });
   }
 
-  protected display(value: unknown): string {
-    if (value === null || value === undefined) return '';
-    return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  protected display(value: Cell): string {
+    return value === null ? '' : String(value);
   }
 }

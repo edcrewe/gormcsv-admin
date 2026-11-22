@@ -13,6 +13,7 @@ import { dirname } from 'node:path';
 import { Request, Response, Router } from 'express';
 import type { HistoryEntry, HistoryPage } from '../shared/api-types';
 import { errorMessage } from './commands';
+import { parsePaging } from './paging';
 
 /** Row errors kept per entry; an import can reject thousands. */
 export const ERRORS_KEPT = 20;
@@ -61,29 +62,14 @@ export class HistoryLog {
   }
 }
 
-const MAX_PAGE = 200;
-
-/** Reads ?limit (1-200, default 25) and ?offset, or returns what is wrong with them. */
-export function parsePaging(
-  query: Record<string, unknown>,
-): { limit: number; offset: number } | string {
-  const whole = (value: unknown, fallback: number) => {
-    if (value === undefined) return fallback;
-    return typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : NaN;
-  };
-  const limit = whole(query['limit'], 25);
-  const offset = whole(query['offset'], 0);
-  if (!(limit >= 1 && limit <= MAX_PAGE))
-    return `limit must be a whole number from 1 to ${MAX_PAGE}`;
-  if (!(offset >= 0)) return 'offset must be a whole number, 0 or more';
-  return { limit, offset };
-}
+/** ?limit is 1-200, default 25. */
+export const HISTORY_PAGING = { defaultLimit: 25, maxLimit: 200 };
 
 /** GET /api/history: one page of the log, newest first. */
 export function createHistoryRouter({ history }: { history: HistoryLog }): Router {
   const router = Router();
   router.get('/', async (req: Request, res: Response) => {
-    const paging = parsePaging(req.query as Record<string, unknown>);
+    const paging = parsePaging(req.query as Record<string, unknown>, HISTORY_PAGING);
     if (typeof paging === 'string') {
       res.status(400).json({ ok: false, error: paging });
       return;

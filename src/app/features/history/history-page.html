@@ -22,6 +22,11 @@
       log.
     </p>
   } @else {
+    @if (data.entries.length === 0) {
+      <p class="past-end" role="status">
+        No entries on this page; the log has {{ data.total }}. Use First page to go back.
+      </p>
+    }
     <table mat-table [dataSource]="data.entries">
       <caption>
         {{

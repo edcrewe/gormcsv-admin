@@ -5,7 +5,7 @@ import express from 'express';
 import request from 'supertest';
 import { createApiRouter } from './api-router';
 import { GormcsvRunner } from './commands';
-import { ERRORS_KEPT, HistoryLog, parsePaging } from './history';
+import { ERRORS_KEPT, HistoryLog } from './history';
 
 let dir: string;
 let clock: number;
@@ -107,25 +107,6 @@ describe('HistoryLog', () => {
     expect(error).toHaveBeenCalled();
     error.mockRestore();
   });
-});
-
-describe('parsePaging', () => {
-  it.each([
-    [{}, { limit: 25, offset: 0 }],
-    [
-      { limit: '200', offset: '40' },
-      { limit: 200, offset: 40 },
-    ],
-  ])('reads %j', (query, paging) => {
-    expect(parsePaging(query)).toEqual(paging);
-  });
-
-  it.each([[{ limit: '0' }], [{ limit: '201' }], [{ limit: 'x' }], [{ offset: '-1' }]])(
-    'rejects %j',
-    (query) => {
-      expect(typeof parsePaging(query)).toBe('string');
-    },
-  );
 });
 
 describe('GET /api/history', () => {
