@@ -8,6 +8,13 @@ It is an Angular SSR app. The bundled Express server (`src/server.ts`) exposes a
 runs the `gormcsv` CLI. See [PLAN.md](PLAN.md) for the phased roadmap and [AGENTS.md](AGENTS.md)
 for coding conventions.
 
+If developing a Go application with the gorm ORM this and gormcsv can be used to ingest unknown format 
+CSV files turning them into database tables of data, the generated gorm models file can be updated to the main application.
+
+Or it can be used standalone as a means to regularly ingest large variant format data in basic CSV format into a database such as Postgres for structured data engineering work. The Go parallel ingestion feature of gormcsv enables low footprint performant parallel ingestion of large amounts of data.
+This admin UI serves the purpose of model (schema) creation and inspection in models.go 
+Testing with sample data inspection and tweaking ready for using for large scale ingestion.
+
 ## Prerequisites
 
 - Node.js 22+ and npm
