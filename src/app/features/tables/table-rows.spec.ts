@@ -122,6 +122,27 @@ describe('TableRows', () => {
     expect(text(el.querySelector('.range'))).toBe('No rows');
   });
 
+  it('explains a page past the end of the table, rather than an impossible range', async () => {
+    const { el } = await render({ page: '40' }, { ...PAGE, rows: [], offset: 1000 });
+
+    expect(text(el.querySelector('.range'))).toBe(
+      'No rows on this page; the table has 245. Use First page to go back.',
+    );
+    expect(el.querySelector('button.mat-mdc-paginator-navigation-first')).not.toBeNull();
+  });
+
+  it('keeps a huge page number within the offsets the API accepts', async () => {
+    const { url } = await render({ page: '1e400', size: '100' });
+
+    expect(url).toBe('/api/tables/countries/rows?limit=100&offset=0');
+  });
+
+  it('shows a large integer exactly as the API sends it', async () => {
+    const { el } = await render({}, { ...PAGE, rows: [['9007199254740993', 'Big', null]] });
+
+    expect(text(el.querySelector('tbody td'))).toBe('9007199254740993');
+  });
+
   it('marks the sorted column for assistive technology', async () => {
     const { el } = await render({ sort: 'name', direction: 'desc' });
 

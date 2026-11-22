@@ -102,6 +102,18 @@ describe('HistoryPage', () => {
     expect(el.querySelector('table')).toBeNull();
   });
 
+  it('explains a page past the end of the log', async () => {
+    const { el } = await render({ page: '9' }, (req) =>
+      req.flush({ ...DATA, entries: [], offset: 225 }),
+    );
+
+    expect(text(el.querySelector('.past-end'))).toBe(
+      'No entries on this page; the log has 30. Use First page to go back.',
+    );
+    expect(el.querySelector('mat-paginator')).not.toBeNull();
+    await expectNoAxeViolations(el);
+  });
+
   it('shows the API error', async () => {
     const { el } = await render({}, (req) =>
       req.flush(

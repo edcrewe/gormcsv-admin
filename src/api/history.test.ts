@@ -133,10 +133,22 @@ describe('GET /api/history', () => {
     });
   });
 
-  it('rejects bad paging with 400', async () => {
-    const res = await request(appWith(log())).get('/api/history?limit=1000');
+  it.each([
+    ['limit=1000', 'limit must be a whole number from 1 to 200'],
+    ['limit=201', 'limit must be a whole number from 1 to 200'],
+    ['offset=1e400', 'offset must be a whole number from 0 to 2147483647'],
+  ])('rejects %s with 400', async (query, error) => {
+    const res = await request(appWith(log())).get(`/api/history?${query}`);
 
     expect(res.status).toBe(400);
+    expect(res.body).toEqual({ ok: false, error });
+  });
+
+  it('allows the full 200 entries and an offset past the end', async () => {
+    const res = await request(appWith(log())).get('/api/history?limit=200&offset=500');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ entries: [], total: 0, limit: 200, offset: 500 });
   });
 
   it('is not mounted without a history log', async () => {

@@ -58,6 +58,19 @@ describe('GET /api/tables', () => {
     const res = await request(appWith(runner)).get('/api/tables');
 
     expect(res.status).toBe(503);
+    expect(res.body.error).toBe('gormcsv tables did not print a JSON report; it may be too old');
+  });
+
+  it('returns 503 for a JSON report of the wrong shape, rather than passing it on', async () => {
+    const report = { tables: [{ ...TABLE, columns: [{ name: 'id' }] }] };
+    const runner = vi
+      .fn<GormcsvRunner>()
+      .mockResolvedValue({ stdout: JSON.stringify(report), stderr: '' });
+
+    const res = await request(appWith(runner)).get('/api/tables');
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ ok: false, error: 'gormcsv tables printed an unexpected report' });
   });
 
   it('returns 502 with the driver message, password hidden, when the database is unreachable', async () => {
@@ -211,13 +224,47 @@ describe('GET /api/tables/:name/rows', () => {
     expect(res.body.error).toBe('no column "nope" in "countries": not found');
   });
 
-  it('returns 400 for bad paging without running gormcsv', async () => {
+  it.each(['limit=5000', 'offset=1e9', 'offset=99999999999999999999', 'offset=2147483648'])(
+    'returns 400 for bad paging (%s) without running gormcsv',
+    async (query) => {
+      const runner = okRunner();
+
+      const res = await request(appWith(runner)).get(`/api/tables/countries/rows?${query}`);
+
+      expect(res.status).toBe(400);
+      expect(runner).not.toHaveBeenCalled();
+    },
+  );
+
+  it('passes the largest offset to gormcsv', async () => {
     const runner = okRunner();
 
-    const res = await request(appWith(runner)).get('/api/tables/countries/rows?limit=5000');
+    await request(appWith(runner)).get('/api/tables/countries/rows?offset=2147483647');
 
-    expect(res.status).toBe(400);
-    expect(runner).not.toHaveBeenCalled();
+    expect(runner.mock.calls[0][0]).toContain('2147483647');
+  });
+
+  it('returns a page with large integers as text, as gormcsv gives them', async () => {
+    const page = { ...PAGE, rows: [['9007199254740993', 'x']] };
+    const runner = vi
+      .fn<GormcsvRunner>()
+      .mockResolvedValue({ stdout: JSON.stringify(page), stderr: '' });
+
+    const res = await request(appWith(runner)).get('/api/tables/countries/rows');
+
+    expect(res.body.rows).toEqual([['9007199254740993', 'x']]);
+  });
+
+  it('returns 503 when a row does not match the columns', async () => {
+    const page = { ...PAGE, rows: [[1]] };
+    const runner = vi
+      .fn<GormcsvRunner>()
+      .mockResolvedValue({ stdout: JSON.stringify(page), stderr: '' });
+
+    const res = await request(appWith(runner)).get('/api/tables/countries/rows');
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('gormcsv rows printed an unexpected report');
   });
 
   it('returns 503 when gormcsv has no rows command', async () => {
