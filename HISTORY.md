@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - Review fixes and gormcsv v0.4.0 - 22 Nov 2026
 
 - Needs gormcsv `v0.4.0` or later, which CI now builds instead of gormcsv master.
 - Every `gormcsv --json` report is checked all the way down before it is used: counts must be
