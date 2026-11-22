@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # e.g. v0.1.0
+
+permissions:
+  contents: write # Required to create a release and upload assets
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-24.04
+    env:
+      SYFT_VERSION: v1.57.2
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Match the packageManager field in package.json, which generated package-lock.json.
+      - name: Install npm
+        run: npm install --global npm@12.2.2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Includes the bin test, which starts the built server.
+      - name: API tests
+        run: npm run test:server
+
+      # The server bundle includes its dependencies, so the archive runs with just Node.
+      - name: Package
+        run: |
+          dir="gormcsv-admin-${GITHUB_REF_NAME}"
+          mkdir -p "${dir}/bin"
+          cp bin/gormcsv-admin.mjs "${dir}/bin/"
+          cp -r dist README.md LICENSE samples "${dir}/"
+          tar -czf "${dir}.tar.gz" "${dir}"
+
+      - name: Install Syft (SBOM Generator)
+        run: |
+          curl -sSfL "https://raw.githubusercontent.com/anchore/syft/${SYFT_VERSION}/install.sh" \
+            | sh -s -- -b /usr/local/bin "${SYFT_VERSION}"
+
+      # The lockfile, not the directory: a directory scan also picks up dev dependencies and
+      # files inside node_modules, none of which ship.
+      - name: Generate SBOM
+        run: |
+          syft scan file:package-lock.json \
+            --source-name gormcsv-admin --source-version "${GITHUB_REF_NAME}" \
+            -o spdx-json=sbom.spdx.json
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            gormcsv-admin-${{ github.ref_name }}.tar.gz
+            sbom.spdx.json
+          generate_release_notes: true

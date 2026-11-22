@@ -97,6 +97,18 @@ gormcsv-admin --port 4000 --host 127.0.0.1   # or: npx gormcsv-admin
 `gormcsv-admin` starts the built server with the same environment variables. Rebuild after
 pulling changes; `npm unlink -g gormcsv-admin` removes the command.
 
+Without building it yourself, download `gormcsv-admin-<tag>.tar.gz` from a GitHub release. The
+server bundle includes its dependencies, so it needs only Node.js 22+ (plus gormcsv, as above):
+
+```bash
+tar -xzf gormcsv-admin-v0.1.0.tar.gz
+node gormcsv-admin-v0.1.0/bin/gormcsv-admin.mjs --port 4000
+```
+
+Each release also has `sbom.spdx.json`, an SPDX software bill of materials for the production
+dependencies in `package-lock.json`. Pushing a `v*` tag builds, tests and publishes the release
+(`.github/workflows/release.yml`).
+
 SSR only answers requests for `localhost` and `127.0.0.1` (`security.allowedHosts` in
 `angular.json`). Add a host there if you serve it under another name.
 
