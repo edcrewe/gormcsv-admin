@@ -10,8 +10,8 @@ also an Angular learning exercise, so features are added one step at a time. Eac
 
 ## Status (2026-11-22)
 
-Phases 0 to 8 are done. Phase 9, fixes from an adversarial review, is in progress: 124 Angular
-specs and 229 API tests pass (239 including the real-CLI, real-build and real-Postgres
+Phases 0 to 8 are done. Phase 9, fixes from an adversarial review, is in progress: 142 Angular
+specs and 273 API tests pass (283 including the real-CLI, real-build and real-Postgres
 integration tests).
 
 gormcsv master has the `rows` command and the phase 9 schema-browsing fixes; CI builds it.
