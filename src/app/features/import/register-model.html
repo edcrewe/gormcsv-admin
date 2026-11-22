@@ -6,9 +6,18 @@
   </p>
   <fieldset>
     <legend>When a row is already in the table</legend>
+    @if (workspace.isLoading()) {
+      <p class="hint">Checking whether {{ modelName() }} is already registered…</p>
+    } @else if (registered(); as registered) {
+      <p class="hint current-rule">
+        {{ modelName() }} is already registered, and duplicates are {{ registered.description }}.
+        Registering keeps that unless you change it here.
+      </p>
+    }
     <mat-radio-group
       [value]="mode()"
-      (change)="mode.set($event.value)"
+      [disabled]="workspace.isLoading()"
+      (change)="setMode($event.value)"
       aria-describedby="duplicates-note"
     >
       <mat-radio-button value="allow">Import it again</mat-radio-button>
@@ -18,6 +27,7 @@
           @for (column of columns(); track column) {
             <mat-checkbox
               [checked]="keyColumns().includes(column)"
+              [disabled]="workspace.isLoading()"
               (change)="setKeyColumn(column, $event.checked)"
               >{{ column }}</mat-checkbox
             >

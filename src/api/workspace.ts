@@ -3,9 +3,10 @@
  * generated importcsv/models.go (MakeModels) is its model registry. Django is similar: a model must
  * exist in code before `migrate`. So registering a CSV copies it into csv/, regenerates models.go
  * from every registered CSV in a dedicated gormcsv checkout, and runs `go build` to produce a new
- * bin/gormcsv that can import all of them. The new binary is built alongside the old one and only
- * swapped in if the build succeeds. If anything fails, the previous CSVs and models.go are
- * restored, so the workspace always matches its last good binary.
+ * bin/gormcsv that can import all of them. The new binary and the models.json describing it are
+ * built alongside the old pair and swapped in together only if the build succeeds. If anything
+ * fails, the previous CSVs, models.go and binary are restored, so the workspace always matches its
+ * last good binary.
  *
  * How the async parts work: this file runs on the Node server, not in Angular, so it uses plain
  * Promises and async/await rather than Angular's Observables or signals. Each step (copy,
@@ -75,6 +76,20 @@ const VERSION_FLAG = 'github.com/edcrewe/gormcsv/cmd.Version';
 const INSPECT_TIMEOUT_MS = 120_000;
 const DETAILS_LINES = 40;
 
+/** A new binary and models.json moved into place, with the previous pair kept until confirmed. */
+interface Swap {
+  undo(): Promise<void>;
+  discardPrevious(): Promise<void>;
+}
+
+/**
+ * Removes dir and the separator after it from paths in text. gormcsv prints paths with the
+ * platform's separator, so both / and \ are matched.
+ */
+export function hideDir(text: string, dir: string): string {
+  return text.replaceAll(`${dir}/`, '').replaceAll(`${dir}\\`, '');
+}
+
 /** The admin's model registry: registered CSVs plus the gormcsv binary built from them. */
 export class ModelWorkspace {
   readonly csvDir: string;
@@ -95,6 +110,11 @@ export class ModelWorkspace {
     this.builtModels = join(config.dir, 'bin', 'models.json');
     this.modelsGo = join(config.srcDir, 'importcsv', 'models.go');
     this.rulesPath = join(config.dir, 'duplicates.json');
+  }
+
+  /** What a build produces, swapped into place together. */
+  private get artifacts(): string[] {
+    return [this.binPath, this.builtModels];
   }
 
   status(): Promise<WorkspaceStatus> {
@@ -122,6 +142,7 @@ export class ModelWorkspace {
           replaced.map(async (name) => ({ name, data: await readFile(join(this.csvDir, name)) })),
         ),
       };
+      let swap: Swap | undefined;
 
       try {
         await Promise.all(replaced.map((name) => rm(join(this.csvDir, name))));
@@ -132,8 +153,13 @@ export class ModelWorkspace {
         await this.writeRules(rules);
         const { warnings, models } = await this.generateModels(rules);
         await this.build(models);
-        return { file: filename, warnings, status: await this.readStatus() };
+        swap = await this.swapIn();
+        const status = await this.readStatus();
+        await swap.discardPrevious();
+        return { file: filename, warnings, status };
       } catch (err: unknown) {
+        await swap?.undo();
+        await Promise.all(this.artifacts.map((path) => rm(`${path}.next`, { force: true })));
         await rm(join(this.csvDir, filename), { force: true });
         await Promise.all(backup.files.map((f) => writeFile(join(this.csvDir, f.name), f.data)));
         await writeFile(this.modelsGo, backup.models);
@@ -174,7 +200,7 @@ export class ModelWorkspace {
         '--json',
       ].flat();
       // Workspace paths mean nothing to users, and a driver error could echo the DSN password.
-      const clean = (text: string) => scrub(text.replaceAll(`${this.csvDir}/`, ''), this.database);
+      const clean = (text: string) => scrub(hideDir(text, this.csvDir), this.database);
       const { importTimeoutMs = 1_800_000 } = this.config;
 
       try {
@@ -300,7 +326,7 @@ export class ModelWorkspace {
     rules: Record<string, DuplicateRule>,
   ): Promise<{ warnings: string[]; models: GoModel[] }> {
     const { gormcsvBin = 'gormcsv', run } = this.config;
-    const hidePaths = (text: string) => text.replaceAll(`${this.csvDir}/`, '');
+    const hidePaths = (text: string) => hideDir(text, this.csvDir);
     try {
       const { stdout } = await run(
         gormcsvBin,
@@ -333,18 +359,23 @@ export class ModelWorkspace {
     })
       .then(({ stdout }) => stdout.trim())
       .catch(() => 'devel');
-    // Build beside the live binary and swap it in, so a failed build leaves the old one working.
-    const next = `${this.binPath}.next`;
+    // Build beside the live binary; swapIn() moves it into place once everything is ready.
+    await writeFile(`${this.builtModels}.next`, JSON.stringify(models, null, 2));
     try {
       await run(
         goBin,
-        ['build', '-trimpath', '-ldflags', `-X ${VERSION_FLAG}=${version}`, '-o', next, '.'],
+        [
+          'build',
+          '-trimpath',
+          '-ldflags',
+          `-X ${VERSION_FLAG}=${version}`,
+          '-o',
+          `${this.binPath}.next`,
+          '.',
+        ],
         { cwd: srcDir, timeoutMs: buildTimeoutMs },
       );
-      await rename(next, this.binPath);
-      await writeFile(this.builtModels, JSON.stringify(models, null, 2));
     } catch (err: unknown) {
-      await rm(next, { force: true });
       const details =
         err instanceof CommandError && err.stderr
           ? err.stderr.trim().split('\n').slice(-DETAILS_LINES).join('\n')
@@ -353,6 +384,37 @@ export class ModelWorkspace {
         err instanceof CommandError && err.timedOut ? 'go build timed out' : 'go build failed';
       throw new WorkspaceError(message, 'build', details);
     }
+  }
+
+  /**
+   * Moves the new binary and its models.json into place together, keeping the live ones as
+   * .prev, so the binary and the models it reports always match. If a move fails, the ones
+   * already made are undone. undo() also puts the previous pair back after a later failure;
+   * discardPrevious() removes it once the new pair is confirmed.
+   */
+  private async swapIn(): Promise<Swap> {
+    const moved: { path: string; hadLive: boolean }[] = [];
+    const undo = async () => {
+      for (const { path, hadLive } of [...moved].reverse()) {
+        await rm(path, { force: true });
+        if (hadLive) await rename(`${path}.prev`, path);
+      }
+    };
+    try {
+      for (const path of this.artifacts) {
+        const hadLive = (await stat(path).catch(() => null)) !== null;
+        if (hadLive) await rename(path, `${path}.prev`);
+        moved.push({ path, hadLive });
+        await rename(`${path}.next`, path);
+      }
+    } catch (err: unknown) {
+      await undo();
+      throw err;
+    }
+    const discardPrevious = async () => {
+      await Promise.all(this.artifacts.map((path) => rm(`${path}.prev`, { force: true })));
+    };
+    return { undo, discardPrevious };
   }
 
   private exclusive<T>(task: () => Promise<T>): Promise<T> {

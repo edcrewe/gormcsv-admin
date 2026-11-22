@@ -8,13 +8,13 @@ The Angular SSR Express server (`src/server.ts`) is a local bridge to the `gormc
 also an Angular learning exercise, so features are added one step at a time. Each step is a
 `feat:` commit then a `test:` commit, and stops for review before the next.
 
-## Status (2026-11-21)
+## Status (2026-11-22)
 
-Phases 0 to 8 are done: 119 Angular specs and 214 API tests pass (225 including the real-CLI,
-real-build and real-Postgres integration tests).
+Phases 0 to 8 are done. Phase 9, fixes from an adversarial review, is in progress: 124 Angular
+specs and 229 API tests pass (239 including the real-CLI, real-build and real-Postgres
+integration tests).
 
-**Open gormcsv branch `rows-command` (`e44e9ff`)**: the Rows tab needs it. Merge it before
-pushing the admin; CI builds gormcsv master.
+gormcsv master has the `rows` command and the phase 9 schema-browsing fixes; CI builds it.
 
 All planned work is done except the schema editor, which is deferred. README screenshots are
 in `docs/screenshots/`, taken from the samples walkthrough.
@@ -165,6 +165,20 @@ Project-specific:
   CSV, outcome (ok, partial or failed), the masked database, totals, the first 20 messages. A
   plain file rather than a SQLite file, since the log only ever needs paging newest first.
 - `GET /api/history` and the `/history` page, which pages through the URL like the Rows tab.
+
+### Phase 9: Review fixes (in progress)
+
+1. gormcsv schema browsing (done, gormcsv `252dbbf`): `tables` and `rows` quote names and read
+   columns and indexes from the catalogue; indexes behind `UNIQUE` constraints are listed; integers
+   beyond ±(2^53 − 1) come back as strings; the text output past the last row is sensible.
+2. Workspace state (done): re-registering keeps a model's duplicate rule unless the user changes
+   it; the binary and `models.json` swap in together and are restored together on any later
+   failure; workspace paths are hidden with either separator. A tag push builds a release archive
+   and SBOM (`.github/workflows/release.yml`).
+3. API boundary: one bounded paging parser for rows and history, an empty-page message,
+   deeper checks on gormcsv's JSON (including string integers), and per-command flag state in
+   gormcsv.
+4. Cleanup: the committed `gormcsv/cmd/gormcsv.db`, ignoring generated databases, README updates.
 
 ### Later
 
