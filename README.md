@@ -1,6 +1,6 @@
 # gormcsv-admin
 
-A django-admin-style web UI for [gormcsv](https://github.com/edcrewe/gormcsv). It covers uploading
+A relational database admin UI for [gormcsv](https://github.com/edcrewe/gormcsv). It covers uploading
 a CSV, generating its model, migrating the schema and populating the table, then browsing the
 schema and records.
 
@@ -12,47 +12,13 @@ for coding conventions.
 
 - Node.js 22+ and npm
 - `gormcsv` on your `PATH`, or set `GORMCSV_BIN=/path/to/gormcsv`. It must have the `version`
-  command, `--json` output and the `tables` and `rows` commands (gormcsv `e44e9ff` or later). The workspace
-  checkout needs `6678dfb` or later, which reads the import DSN from `GORMCSV_DSN`. Without `version` the header badge
+  command, `--json` output and the `tables` and `rows` commands (gormcsv `v0.4.0` or later). 
+  The workspace reads the import DSN from `GORMCSV_DSN`. Without `version` the header badge
   shows "gormcsv CLI not available or too old"; without `--json`, inspecting says gormcsv "may be
   too old".
 
 ```bash
 npm install
-```
-
-### Model workspace
-
-gormcsv can only import models compiled into its binary. Registering a CSV therefore regenerates
-`importcsv/models.go` in a gormcsv source checkout and runs `go build`, so you also need Go 1.25+
-and a C compiler. The admin overwrites `models.go` in that checkout, so give it its own detached
-worktree rather than your working copy:
-
-```bash
-mkdir -p ~/.local/share/gormcsv-admin
-git -C ~/projects/gormcsv worktree add --detach ~/.local/share/gormcsv-admin/gormcsv-src master
-```
-
-The workspace dir then holds:
-
-- `gormcsv-src/`, the checkout
-- `csv/`, the registered CSVs, one per model
-- `bin/gormcsv`, the built binary
-- `gormcsv.db`, the default SQLite database that **Populate tables** on the Models page imports
-  into (see [Import database](#import-database))
-- `history.jsonl`, the import history: one line per registration and import, shown on the
-  **History** page
-- `duplicates.json`, each model's duplicate rule: when registering, choose whether a row already
-  in the table is imported again, skipped when chosen key columns match (gormcsv `--key`), or
-  skipped when the whole row matches (`--dedupe`). Change a rule only while the model's table is
-  empty, because the unique index cannot be created over existing duplicates.
-
-To move the checkout to a newer gormcsv, discard the generated file and re-register a model to
-rebuild:
-
-```bash
-git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout -- importcsv/models.go
-git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout --detach master
 ```
 
 ## Run the frontend
@@ -126,6 +92,40 @@ pulling changes; `npm unlink -g gormcsv-admin` removes the command.
 
 SSR only answers requests for `localhost` and `127.0.0.1` (`security.allowedHosts` in
 `angular.json`). Add a host there if you serve it under another name.
+
+### Model workspace
+
+gormcsv can only import models compiled into its binary. Registering a CSV therefore regenerates
+`importcsv/models.go` in a gormcsv source checkout and runs `go build`, so you also need Go 1.25+
+and a C compiler. The admin overwrites `models.go` in that checkout, so give it its own detached
+worktree rather than your working copy:
+
+```bash
+mkdir -p ~/.local/share/gormcsv-admin
+git -C ~/projects/gormcsv worktree add --detach ~/.local/share/gormcsv-admin/gormcsv-src master
+```
+
+The workspace dir then holds:
+
+- `gormcsv-src/`, the checkout
+- `csv/`, the registered CSVs, one per model
+- `bin/gormcsv`, the built binary
+- `gormcsv.db`, the default SQLite database that **Populate tables** on the Models page imports
+  into (see [Import database](#import-database))
+- `history.jsonl`, the import history: one line per registration and import, shown on the
+  **History** page
+- `duplicates.json`, each model's duplicate rule: when registering, choose whether a row already
+  in the table is imported again, skipped when chosen key columns match (gormcsv `--key`), or
+  skipped when the whole row matches (`--dedupe`). Change a rule only while the model's table is
+  empty, because the unique index cannot be created over existing duplicates.
+
+To move the checkout to a newer gormcsv, discard the generated file and re-register a model to
+rebuild:
+
+```bash
+git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout -- importcsv/models.go
+git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout --detach master
+```
 
 ## Try it with the samples
 
@@ -234,5 +234,4 @@ src/
   testing/         Spec helpers, such as expectNoAxeViolations
 ```
 
-Component specs run AXE via `axe-core`. jsdom cannot compute styles, so colour contrast is not
-checked there. Check it in a real browser.
+Component specs run AXE via `axe-core` to check accessibility.
