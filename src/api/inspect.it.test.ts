@@ -15,7 +15,7 @@ describe.skipIf(!process.env['GORMCSV_IT'])('POST /api/inspect with the real gor
     const res = await request(app).get('/api/health');
 
     expect(res.status).toBe(200);
-    // v0.3.1 on a tag, v0.3.1-3-g4446d92 after one, optionally -dirty.
+    // v0.4.0 on a tag, v0.4.0-3-g4446d92 after one, optionally -dirty.
     expect(res.body.version).toMatch(/^v\d+\.\d+\.\d+(-\d+-g[0-9a-f]{7,})?(-dirty)?$/);
   });
 

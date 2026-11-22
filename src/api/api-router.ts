@@ -42,7 +42,7 @@ export function createApiRouter({
 }: ApiDeps): Router {
   const router = Router();
 
-  // `gormcsv version` prints e.g. "gormcsv v0.3.1-3-g4446d92". Older binaries without the command
+  // `gormcsv version` prints e.g. "gormcsv v0.4.0-3-g4446d92". Older binaries without the command
   // also lack ragged-row skipping, so they are reported as unusable rather than ready.
   router.get('/health', async (_req, res) => {
     try {

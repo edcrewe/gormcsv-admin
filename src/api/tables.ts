@@ -24,8 +24,8 @@ export interface TablesDeps {
 type Command = 'tables' | 'rows';
 
 const TOO_OLD: Record<Command, string> = {
-  tables: 'gormcsv is too old to list tables; install one with the tables command',
-  rows: 'gormcsv is too old to read rows; install one with the rows command',
+  tables: 'gormcsv is too old to list tables; install gormcsv v0.4.0 or later',
+  rows: 'gormcsv is too old to read rows; install gormcsv v0.4.0 or later',
 };
 
 /** gormcsv's own cap on one page. */

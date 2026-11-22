@@ -5,8 +5,8 @@ a CSV, generating its model, migrating the schema and populating the table, then
 schema and records.
 
 It is an Angular SSR app. The bundled Express server (`src/server.ts`) exposes a local `/api` that
-runs the `gormcsv` CLI. See [PLAN.md](PLAN.md) for the phased roadmap and [AGENTS.md](AGENTS.md)
-for coding conventions.
+runs the `gormcsv` CLI. See [PLAN.md](PLAN.md) for the phased roadmap, [HISTORY.md](HISTORY.md)
+for changes in each release, and [AGENTS.md](AGENTS.md) for coding conventions.
 
 If developing a Go application with the gorm ORM this and gormcsv can be used to ingest unknown format
 CSV files turning them into database tables of data, the generated gorm models file can be updated to the main application.
@@ -84,7 +84,7 @@ GORMCSV_DB_DRIVER=mysql GORMCSV_DSN='user:pass@tcp(localhost:3306)/db?parseTime=
 
 URL-encode special characters in a URL-style password (`@` as `%40`). The admin hands the DSN
 to gormcsv in its `GORMCSV_DSN` environment variable rather than as `--dsn`, so it does not show
-in the process list. That needs a workspace binary built from gormcsv `6678dfb` or later; with an
+in the process list. That needs a workspace binary built from gormcsv `v0.4.0` or later; with an
 older one, Populate refuses and asks you to re-register a model to rebuild it.
 
 Or, to run it as a command from anywhere, link the package once after building:
@@ -117,11 +117,11 @@ SSR only answers requests for `localhost` and `127.0.0.1` (`security.allowedHost
 gormcsv can only import models compiled into its binary. Registering a CSV therefore regenerates
 `importcsv/models.go` in a gormcsv source checkout and runs `go build`, so you also need Go 1.25+
 and a C compiler. The admin overwrites `models.go` in that checkout, so give it its own detached
-worktree rather than your working copy:
+worktree rather than your working copy, at gormcsv `v0.4.0` or a later release tag:
 
 ```bash
 mkdir -p ~/.local/share/gormcsv-admin
-git -C ~/projects/gormcsv worktree add --detach ~/.local/share/gormcsv-admin/gormcsv-src master
+git -C ~/projects/gormcsv worktree add --detach ~/.local/share/gormcsv-admin/gormcsv-src v0.4.0
 ```
 
 The workspace dir then holds:
@@ -138,12 +138,12 @@ The workspace dir then holds:
   skipped when the whole row matches (`--dedupe`). Change a rule only while the model's table is
   empty, because the unique index cannot be created over existing duplicates.
 
-To move the checkout to a newer gormcsv, discard the generated file and re-register a model to
-rebuild:
+To move the checkout to a newer gormcsv, discard the generated file, check out the new tag (here
+`v0.4.0`) and re-register a model to rebuild:
 
 ```bash
 git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout -- importcsv/models.go
-git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout --detach master
+git -C ~/.local/share/gormcsv-admin/gormcsv-src checkout --detach v0.4.0
 ```
 
 ## Try it with the samples
@@ -195,7 +195,7 @@ Run `npm test -- --watch=false` for a single pass instead of watch mode. API tes
 `gormcsv` runner, so they don't need the binary installed. Integration tests are skipped unless
 `GORMCSV_IT=1` is set, which `test:server:it` does.
 
-The integration tests need the same gormcsv as the app (`5d80040` or later). To test another
+The integration tests need the same gormcsv as the app (`v0.4.0` or later). To test another
 build:
 
 ```bash
@@ -236,7 +236,8 @@ npm run lint && npm test -- --watch=false && npm run test:server && npx prettier
 ```
 
 CI (`.github/workflows/test.yml`) runs the same checks on every push and pull request. A second
-job builds gormcsv master with `make build` and runs `npm run test:server:it` against it.
+job builds gormcsv `v0.4.0`, the oldest release the admin supports, with `make build` and runs
+`npm run test:server:it` against it.
 
 ## Layout
 

@@ -66,12 +66,13 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v7
 
+      # The oldest gormcsv the admin supports (README.md); raise it when the admin needs a newer one.
       # Full history and tags so `make build` can stamp the git-describe version the health check expects.
       - name: Check out gormcsv
         uses: actions/checkout@v7
         with:
           repository: edcrewe/gormcsv
-          ref: master
+          ref: v0.4.0
           path: gormcsv-src
           fetch-depth: 0
 

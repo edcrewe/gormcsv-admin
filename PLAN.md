@@ -14,15 +14,19 @@ Phases 0 to 8 are done. Phase 9, fixes from an adversarial review, is in progres
 specs and 273 API tests pass (283 including the real-CLI, real-build and real-Postgres
 integration tests).
 
-gormcsv master has the `rows` command and the phase 9 schema-browsing fixes; CI builds it.
+The admin needs gormcsv `v0.4.0` or later, which has the `tables` and `rows` commands and the
+phase 9 fixes; CI builds that tag. The admin's first release is `v0.1.0`; changes since are in
+[HISTORY.md](HISTORY.md).
 
 All planned work is done except the schema editor, which is deferred. README screenshots are
 in `docs/screenshots/`, taken from the samples walkthrough.
 
 Notes for picking up:
 
-- gormcsv master (merged and pushed) now has ragged-row skipping in `inspectcsv` and a `version`
-  command. The admin's health check and integration tests rely on both. Commit further gormcsv
+- gormcsv `v0.4.0` has ragged-row skipping in `inspectcsv`, a `version` command, `--json`
+  reports, and `tables` and `rows`. The admin's health check and integration tests rely on them.
+  When the admin needs a newer gormcsv, raise the version in README.md, the "too old" messages
+  in `src/api/tables.ts`, and the CI checkout in `.github/workflows/test.yml` together. Commit further gormcsv
   fixes found during this work in `~/projects/gormcsv`, checking the branch first.
 - Initial bundle is about 503 kB. The warning budget was raised to 600 kB (error still 1 MB)
   because the shared Material and Angular resource code now loads with `main`.
@@ -168,7 +172,7 @@ Project-specific:
 
 ### Phase 9: Review fixes (in progress)
 
-1. gormcsv schema browsing (done, gormcsv `252dbbf`): `tables` and `rows` quote names and read
+1. gormcsv schema browsing (done, gormcsv `v0.4.0`): `tables` and `rows` quote names and read
    columns and indexes from the catalogue; indexes behind `UNIQUE` constraints are listed; integers
    beyond ±(2^53 − 1) come back as strings; the text output past the last row is sensible.
 2. Workspace state (done): re-registering keeps a model's duplicate rule unless the user changes
