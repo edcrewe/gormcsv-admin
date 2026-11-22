@@ -15,6 +15,7 @@
 - A page past the end, from a bookmark or after rows were deleted, says so and points to First
   page, instead of showing a range like `1000–999`.
 - The "too old" messages for Tables and Rows name the gormcsv version to install.
+- README: the release example and gormcsv install command are current.
 
 ## 0.1.0 - First release - 22 Nov 2026
 

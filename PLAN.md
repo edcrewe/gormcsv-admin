@@ -10,9 +10,8 @@ also an Angular learning exercise, so features are added one step at a time. Eac
 
 ## Status (2026-11-22)
 
-Phases 0 to 8 are done. Phase 9, fixes from an adversarial review, is in progress: 142 Angular
-specs and 273 API tests pass (283 including the real-CLI, real-build and real-Postgres
-integration tests).
+Phases 0 to 9 are done: 142 Angular specs and 273 API tests pass (283 including the real-CLI,
+real-build and real-Postgres integration tests).
 
 The admin needs gormcsv `v0.4.0` or later, which has the `tables` and `rows` commands and the
 phase 9 fixes; CI builds that tag. The admin's first release is `v0.1.0`; changes since are in
@@ -26,14 +25,15 @@ Notes for picking up:
 - gormcsv `v0.4.0` has ragged-row skipping in `inspectcsv`, a `version` command, `--json`
   reports, and `tables` and `rows`. The admin's health check and integration tests rely on them.
   When the admin needs a newer gormcsv, raise the version in README.md, the "too old" messages
-  in `src/api/tables.ts`, and the CI checkout in `.github/workflows/test.yml` together. Commit further gormcsv
-  fixes found during this work in `~/projects/gormcsv`, checking the branch first.
+  in `src/api/tables.ts`, and the CI checkout in `.github/workflows/test.yml` together. Commit
+  further gormcsv fixes in `~/projects/gormcsv`, checking the branch first.
 - Initial bundle is about 503 kB. The warning budget was raised to 600 kB (error still 1 MB)
   because the shared Material and Angular resource code now loads with `main`.
 - Workspace: a detached worktree at `~/.local/share/gormcsv-admin/gormcsv-src`, with `csv/`,
   `bin/` and `duplicates.json` beside it. The models the binary was built with are saved as
   `bin/models.json`, so the Models page stays right even if the worktree is updated.
-- The local workspace worktree is at gormcsv `6678dfb`. It holds only fixture data from manual
+- The local workspace worktree is still at gormcsv `6678dfb`, older than `v0.4.0`; the README's
+  Model workspace section has the commands to move it to a tag. It holds only fixture data from manual
   checks: Country (key on `code`) and TestTypes registered, and `gormcsv.db` with `countries`
   (245 rows) and `test_types` (6 rows). Automated tests use temp dirs and never touch it.
   Country's `some … model` columns are a deliberate fixture header ("some other data that we dont
@@ -170,7 +170,7 @@ Project-specific:
   plain file rather than a SQLite file, since the log only ever needs paging newest first.
 - `GET /api/history` and the `/history` page, which pages through the URL like the Rows tab.
 
-### Phase 9: Review fixes (in progress)
+### Phase 9: Review fixes (done)
 
 1. gormcsv schema browsing (done, gormcsv `v0.4.0`): `tables` and `rows` quote names and read
    columns and indexes from the catalogue; indexes behind `UNIQUE` constraints are listed; integers
@@ -183,8 +183,12 @@ Project-specific:
    offsets capped at `MAX_OFFSET` on both sides; a message for a page past the end; every gormcsv
    JSON report checked all the way down in `gormcsv-json.ts`, including row widths and
    string-integer cells; and a fresh command tree per run in gormcsv, so flags cannot carry over.
-4. Cleanup: the committed `gormcsv/cmd/gormcsv.db`, ignoring generated databases, README updates.
+4. Cleanup (done): removed the committed `gormcsv/cmd/gormcsv.db` and made gormcsv ignore SQLite
+   databases; READMEs give install commands for both projects and current version references.
 
 ### Later
 
 - Schema editor to override inferred types before generating models.
+- Stable paging when the Rows tab sorts by a column with repeated values: gormcsv `rows` orders by
+  that column alone, so rows with equal values can repeat or be skipped across pages. Adding the
+  primary key as a tie-breaker would fix it for tables that have one.

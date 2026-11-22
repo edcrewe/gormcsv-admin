@@ -101,9 +101,12 @@ Without building it yourself, download `gormcsv-admin-<tag>.tar.gz` from a GitHu
 server bundle includes its dependencies, so it needs only Node.js 22+ (plus gormcsv, as above):
 
 ```bash
-tar -xzf gormcsv-admin-v0.1.0.tar.gz
-node gormcsv-admin-v0.1.0/bin/gormcsv-admin.mjs --port 4000
+tar -xzf gormcsv-admin-v0.2.0.tar.gz
+node gormcsv-admin-v0.2.0/bin/gormcsv-admin.mjs --port 4000
 ```
+
+gormcsv itself installs with `go install github.com/edcrewe/gormcsv@v0.4.0`, or from its own
+releases.
 
 Each release also has `sbom.spdx.json`, an SPDX software bill of materials for the production
 dependencies in `package-lock.json`. Pushing a `v*` tag builds, tests and publishes the release
